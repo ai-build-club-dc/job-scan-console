@@ -1020,7 +1020,10 @@
     const exLine = lines.find(l => /^\(Explicitly excludes:/i.test(l));
     const exMatch = exLine && exLine.match(/^\(Explicitly excludes:\s*(.+)\)$/i);
     if(exMatch){
-      const names = exMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      // Semicolons win when present: exclusion entries often contain their own commas
+      // ("Senior, Director, or VP titles"), so an author separating with ";" means it.
+      const raw = exMatch[1];
+      const names = (raw.includes(';') ? raw.split(';') : raw.split(',')).map(s => s.trim()).filter(Boolean);
       exRow.hidden = false;
       exChips.innerHTML = names.map(n => `<span class="chip chip--muted">${escapeHtml(n)}</span>`).join('');
     } else {
