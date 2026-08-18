@@ -1,0 +1,7 @@
+# Personal data — never committed
+profile.md
+reports/*
+!reports/.gitkeep
+applications/
+resume*
+.DS_Store

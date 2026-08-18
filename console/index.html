@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Job Scan Console</title>
+<style>
+  :root{
+    --bg:#f9fafb; --surface:#ffffff;
+    --border:#e5e7eb; --border-strong:#d1d5db;
+    --text-primary:#111827; --text-secondary:#6b7280; --text-tertiary:#9ca3af;
+    --accent:#4f46e5; --accent-hover:#4338ca; --accent-subtle:#eef2ff; --accent-border:#c7d2fe;
+    --success:#16a34a; --success-subtle:#f0fdf4; --success-border:#bbf7d0;
+    --warning:#b45309; --warning-subtle:#fffbeb; --warning-border:#fde68a;
+    --shadow-sm:0 1px 2px rgba(16,24,40,.05); --shadow-md:0 4px 12px rgba(16,24,40,.08);
+    --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+    --font-mono:ui-monospace,"SF Mono","Cascadia Code","Roboto Mono",Menlo,Consolas,monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{margin:0;background:var(--bg);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+  h1,h2,h3,p{margin:0;}
+  button,input,select{font:inherit;color:inherit;}
+  button{background:none;border:none;cursor:pointer;}
+  a{color:inherit;}
+  .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums;}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px;}
+  code{font-family:var(--font-mono);}
+
+  /* layout */
+  .app-shell{display:flex;min-height:100vh;}
+  .sidebar{width:224px;flex-shrink:0;position:fixed;top:0;left:0;bottom:0;background:var(--surface);border-right:1px solid var(--border);padding:20px 16px;display:flex;flex-direction:column;overflow-y:auto;}
+  .main{margin-left:224px;flex:1;min-width:0;}
+  .content{display:flex;flex-direction:column;gap:24px;padding:28px 32px 72px;}
+  .grid-2col{display:grid;grid-template-columns:1fr 336px;gap:24px;align-items:start;}
+  @media (max-width:1100px){ .grid-2col{grid-template-columns:1fr;} }
+  section{scroll-margin-top:88px;}
+
+  /* sidebar */
+  .back-link{font-size:12.5px;color:var(--text-tertiary);text-decoration:none;display:block;margin-bottom:6px;}
+  .back-link:hover{color:var(--accent);}
+  .arch-link{font-size:11px;color:var(--text-tertiary);text-decoration:none;display:block;margin-bottom:22px;}
+  .arch-link:hover{color:var(--accent);}
+  .brand{display:flex;align-items:center;gap:8px;padding:0 4px;margin-bottom:4px;}
+  .brand-mark{width:26px;height:26px;border-radius:7px;background:var(--accent-subtle);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+  .brand-mark svg{width:15px;height:15px;}
+  .brand-name{font-size:14.5px;font-weight:650;letter-spacing:-.01em;}
+  .brand-tag{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:2px 5px;margin-left:auto;}
+  .nav{display:flex;flex-direction:column;gap:2px;margin-top:22px;}
+  .nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:7px;font-size:13.5px;font-weight:500;color:var(--text-secondary);text-decoration:none;}
+  .nav-item svg{width:16px;height:16px;flex-shrink:0;color:var(--text-tertiary);}
+  .nav-item:hover{background:var(--bg);color:var(--text-primary);}
+  .nav-item.active{background:var(--accent-subtle);color:var(--accent-hover);}
+  .nav-item.active svg{color:var(--accent);}
+  .sidebar-footer{margin-top:auto;padding:10px 4px 2px;border-top:1px solid var(--border);font-size:11.5px;color:var(--text-tertiary);}
+
+  /* icons */
+  .icon{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round;}
+  .icon-fill{fill:currentColor;stroke:none;}
+  .icon-sm{width:13px;height:13px;}
+  .icon-xs{width:11px;height:11px;flex-shrink:0;color:var(--text-tertiary);}
+
+  /* topbar */
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:20px;padding:18px 32px;background:rgba(255,255,255,.92);backdrop-filter:blur(6px) saturate(180%);border-bottom:1px solid var(--border);}
+  .topbar-title{flex:1;min-width:0;}
+  .eyebrow{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-secondary);margin-bottom:3px;}
+  .topbar h1{font-size:19px;font-weight:650;letter-spacing:-.01em;}
+  .status-inline{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary);white-space:nowrap;opacity:0;transform:translateX(6px);transition:opacity .2s,transform .2s;pointer-events:none;}
+  .status-inline.visible{opacity:1;transform:translateX(0);}
+  .spinner-sm{width:12px;height:12px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;flex-shrink:0;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  /* buttons */
+  .btn-primary{display:inline-flex;align-items:center;gap:8px;padding:9px 16px;background:var(--accent);color:#fff;border-radius:8px;font-size:13.5px;font-weight:600;box-shadow:var(--shadow-sm);transition:background .15s;flex-shrink:0;}
+  .btn-primary:hover{background:var(--accent-hover);}
+  .btn-ghost{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--border);border-radius:7px;font-size:12.5px;font-weight:500;color:var(--text-secondary);background:var(--surface);flex-shrink:0;}
+  .btn-ghost:hover{border-color:var(--border-strong);color:var(--text-primary);}
+  input:disabled,button:disabled{opacity:.68;cursor:default;}
+
+  /* run popover */
+  .run-controls{position:relative;display:flex;gap:8px;flex-shrink:0;}
+  .run-popover{position:absolute;top:calc(100% + 10px);right:0;width:300px;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow-md);padding:16px 18px 14px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;z-index:40;}
+  .run-popover code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11.5px;color:var(--text-primary);}
+  .popover-close{position:absolute;top:8px;right:10px;font-size:16px;color:var(--text-tertiary);line-height:1;padding:2px;}
+  .popover-close:hover{color:var(--text-primary);}
+
+  /* cards */
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:var(--shadow-sm);padding:24px;}
+  .section-head{margin-bottom:18px;}
+  .section-head h2{font-size:15px;font-weight:650;}
+  .section-sub{font-size:12.5px;color:var(--text-secondary);margin-top:2px;}
+  .reports-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+
+  /* get started */
+  .getstarted-card{padding:36px 40px;max-width:640px;}
+  .getstarted-card h2{font-size:19px;font-weight:650;letter-spacing:-.01em;margin:0 0 10px;}
+  .getstarted-intro{font-size:13.5px;color:var(--text-secondary);line-height:1.6;margin:0 0 30px;}
+  .getstarted-steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:24px;}
+  .getstarted-step{display:flex;gap:14px;align-items:flex-start;}
+  .getstarted-step-num{display:flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--accent-subtle);border:1px solid var(--accent-border);color:var(--accent-hover);font-weight:700;font-size:12.5px;flex-shrink:0;margin-top:1px;}
+  .getstarted-step-body{flex:1;min-width:0;}
+  .getstarted-step-title{font-size:13.5px;font-weight:650;color:var(--text-primary);margin:0 0 4px;}
+  .getstarted-step-text{font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0;}
+  .getstarted-prompt-box{display:flex;align-items:center;gap:10px;margin-top:10px;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:10px 12px;}
+  .getstarted-prompt-box code{flex:1;font-family:var(--font-mono);font-size:12px;color:var(--text-primary);white-space:pre-wrap;word-break:break-word;}
+  .getstarted-prompt-box .btn-ghost{flex-shrink:0;}
+
+  /* notices */
+  .fatal-banner{background:var(--warning-subtle);border:1px solid var(--warning-border);border-radius:9px;padding:16px 20px;}
+  .fatal-banner h3{font-size:14px;font-weight:650;color:var(--warning);margin-bottom:6px;}
+  .fatal-banner p{font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0;}
+  .fatal-banner code{background:#fff;border:1px solid var(--warning-border);border-radius:4px;padding:1px 6px;font-size:12px;}
+  .warn-banner{background:var(--warning-subtle);border:1px solid var(--warning-border);color:#92400e;padding:10px 14px;border-radius:7px;font-size:12.5px;margin-bottom:14px;}
+  .notice-banner{background:var(--accent-subtle);border:1px solid var(--accent-border);color:var(--accent-hover);padding:10px 14px;border-radius:7px;font-size:12.5px;margin-bottom:14px;}
+  .empty-state{font-size:13px;color:var(--text-tertiary);padding:28px 0;text-align:center;}
+  .readonly-note{font-size:12px;color:var(--text-tertiary);background:var(--bg);border-left:2px solid var(--border-strong);padding:8px 12px;border-radius:4px;margin-bottom:18px;}
+  .readonly-note code{font-size:11.5px;}
+  .inline-error{font-size:12.5px;color:var(--warning);margin-bottom:14px;}
+  .raw-fallback{display:block;font-size:12.5px;color:var(--text-secondary);white-space:pre-wrap;background:var(--bg);border:1px dashed var(--border-strong);border-radius:6px;padding:8px 10px;}
+  .parse-fail{font-size:12.5px;color:var(--text-tertiary);font-style:italic;}
+
+  /* profile fields */
+  .field{padding:16px 0;border-bottom:1px solid var(--border);}
+  .field:first-child{padding-top:0;}
+  .field:last-child{border-bottom:none;padding-bottom:0;}
+  .field-label{display:block;font-size:11.5px;font-weight:650;text-transform:uppercase;letter-spacing:.045em;color:var(--text-secondary);margin-bottom:11px;}
+  .field-sentence{font-size:14px;color:var(--text-primary);}
+
+  .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;background:#f3f4f6;border:1px solid var(--border);border-radius:999px;font-size:12.5px;color:var(--text-primary);}
+  .chip--muted{background:transparent;border-style:dashed;border-color:var(--border-strong);color:var(--text-tertiary);text-decoration:line-through;text-decoration-color:var(--border-strong);}
+  .add-row{display:flex;gap:8px;margin-top:12px;}
+  .text-input{border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13.5px;background:var(--surface);width:100%;}
+  .add-row .text-input{max-width:260px;}
+  .excluded-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
+  .excluded-label{font-size:10.5px;font-weight:650;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);}
+
+  .toggle-row{display:flex;flex-wrap:wrap;gap:8px;}
+  .toggle-chip{padding:7px 14px;border-radius:999px;border:1px solid var(--accent-border);background:var(--accent-subtle);font-size:13px;color:var(--accent-hover);font-weight:600;display:inline-block;}
+
+  .input-prefix{display:inline-flex;align-items:center;border:1px solid var(--border);border-radius:7px;padding:0 10px;background:var(--surface);max-width:170px;}
+  .input-prefix span{color:var(--text-tertiary);font-size:14px;}
+  .input-prefix input{border:none;padding:8px 4px;flex:1;min-width:0;background:none;}
+  .input-prefix input:focus{outline:none;}
+
+  .checkbox-row{display:flex;flex-direction:column;gap:2px;}
+  .checkbox{display:flex;align-items:center;gap:9px;font-size:13.5px;padding:5px 4px;border-radius:6px;width:fit-content;}
+  .checkbox input{width:15px;height:15px;accent-color:var(--accent);}
+
+  .num-input{width:48px;border:1px solid var(--border);border-radius:6px;padding:4px 6px;text-align:center;font-size:13.5px;margin:0 3px;background:var(--surface);}
+
+  /* scoring rubric (collapsible) */
+  .field:has(+ .field[hidden]){border-bottom:none;padding-bottom:0;}
+  .rubric-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:0;text-align:left;}
+  .rubric-toggle-label{font-size:11.5px;font-weight:650;text-transform:uppercase;letter-spacing:.045em;color:var(--text-secondary);}
+  .rubric-toggle:hover .rubric-toggle-label{color:var(--text-primary);}
+  .rubric-toggle[aria-expanded="true"] .chevron::before{content:'▾';color:var(--accent);}
+  .rubric-panel{max-height:0;opacity:0;overflow:hidden;transition:max-height .28s ease,opacity .22s ease;}
+  .rubric-panel.open{opacity:1;}
+  .rubric-panel>*:last-child{margin-bottom:0;}
+  .rubric-intro{font-size:13px;color:var(--text-primary);line-height:1.6;margin:14px 0 6px;}
+  .rubric-intro code{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 5px;font-size:11.5px;color:var(--text-primary);}
+  .rubric-sub{margin:16px 0 2px;}
+  .rubric-sub-title{font-size:12px;font-weight:650;color:var(--text-primary);margin:0 0 6px;}
+  .rubric-row{display:flex;align-items:flex-start;gap:10px;padding:3px 0;}
+  .rubric-chip{display:inline-flex;align-items:center;justify-content:center;min-width:23px;height:21px;padding:0 6px;border-radius:6px;background:var(--accent-subtle);border:1px solid var(--accent-border);color:var(--accent-hover);font-weight:700;font-size:12px;flex-shrink:0;margin-top:1px;}
+  .rubric-anchor-text{font-size:12.5px;color:var(--text-secondary);line-height:1.5;padding-top:2px;}
+  .rubric-note{font-size:12px;color:var(--text-tertiary);font-style:italic;line-height:1.5;margin:6px 0;}
+  .rubric-calibration{margin:18px 0 0;padding-top:14px;border-top:1px dashed var(--border);}
+  .rubric-calibration .rubric-sub-title{color:var(--text-tertiary);}
+  .rubric-calib-row{display:flex;justify-content:space-between;gap:12px;font-size:11.5px;color:var(--text-tertiary);padding:3px 0;line-height:1.4;}
+  .rubric-calib-row span:last-child{flex-shrink:0;}
+
+  /* job boards */
+  .board-card{border:1px solid var(--border);border-radius:8px;padding:15px 16px;margin-bottom:10px;background:var(--surface);}
+  .board-card:last-child{margin-bottom:0;}
+  .board-disabled{background:#fafafa;}
+  .board-head{display:flex;align-items:center;gap:10px;margin-bottom:7px;}
+  .board-mark{width:28px;height:28px;border-radius:7px;background:var(--accent-subtle);color:var(--accent-hover);display:flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;flex-shrink:0;}
+  .board-disabled .board-mark{background:#ececec;color:var(--text-tertiary);}
+  .board-name{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .board-name strong{font-size:13.5px;font-weight:650;}
+  .board-disabled .board-name strong{color:var(--text-secondary);}
+  .status-pill{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:650;padding:3px 8px 3px 7px;border-radius:999px;}
+  .status-connected{background:var(--success-subtle);color:var(--success);border:1px solid var(--success-border);}
+  .status-connected .dot{width:6px;height:6px;border-radius:50%;background:var(--success);flex-shrink:0;}
+  .status-soon{background:#eef0f2;color:var(--text-tertiary);}
+  .board-meta{font-size:12.5px;color:var(--text-secondary);margin-left:38px;}
+
+  /* reports */
+  .stats-row{font-size:13px;color:var(--text-secondary);padding-bottom:18px;margin-bottom:14px;border-bottom:1px solid var(--border);}
+  .stats-row .mono{color:var(--text-primary);font-weight:600;}
+  .report-picker{border:1px solid var(--border);border-radius:7px;padding:7px 10px;font-size:12.5px;background:var(--surface);max-width:230px;flex-shrink:0;}
+  .report-picker:focus{border-color:var(--accent);}
+  .table-wrap{overflow-x:auto;margin:0 -24px;padding:0 24px;}
+  .report-table{width:100%;min-width:860px;border-collapse:collapse;table-layout:fixed;}
+  .report-table th{text-align:left;text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:650;color:var(--text-tertiary);padding:7px 8px;border-bottom:1px solid var(--border-strong);}
+  .report-table td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:13px;color:var(--text-primary);}
+  .data-row{cursor:pointer;}
+  .data-row:hover{background:#fafafb;}
+  .data-row.open{background:var(--accent-subtle);}
+  .chevron{display:inline-block;width:11px;font-size:9px;color:var(--text-tertiary);}
+  .chevron::before{content:'▸';}
+  .data-row.open .chevron::before{content:'▾';color:var(--accent);}
+  .c-rank{text-align:center;white-space:nowrap;color:var(--text-tertiary);font-size:12px;}
+  .c-fit{white-space:nowrap;}
+  .fit-score{display:block;font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--text-primary);font-variant-numeric:tabular-nums;}
+  .fit-score small{font-size:10px;font-weight:500;color:var(--text-tertiary);}
+  .fit-bar{display:block;font-family:var(--font-mono);font-size:11px;margin-top:2px;}
+  .fit-bar .filled{color:var(--accent);}
+  .fit-bar .empty{color:var(--border-strong);}
+  .c-title{font-weight:600;}
+  .c-location .muted{color:var(--text-tertiary);}
+  .c-salary{font-family:var(--font-mono);text-align:right;font-variant-numeric:tabular-nums;font-size:12px;}
+  .c-apply{text-align:right;white-space:nowrap;}
+  .c-apply a{color:var(--accent-hover);font-weight:600;font-size:12.5px;text-decoration:none;}
+  .c-apply a:hover{text-decoration:underline;}
+  .c-apply .muted{color:var(--text-tertiary);}
+  tr.rationale{display:none;}
+  tr.rationale.open{display:table-row;}
+  tr.rationale td{padding:0 8px 14px;border-bottom:1px solid var(--border);background:var(--accent-subtle);}
+  .rationale-text{font-size:12.5px;color:var(--text-secondary);font-style:italic;padding-left:10px;border-left:2px solid var(--accent-border);}
+
+  /* markdown render */
+  .md-body{font-size:13.5px;}
+  .md-body h1{font-size:16px;font-weight:650;letter-spacing:-.01em;margin:0 0 10px;color:var(--text-primary);}
+  .md-body h2{font-size:13.5px;font-weight:650;margin:18px 0 8px;color:var(--text-primary);}
+  .md-body h2:first-child{margin-top:0;}
+  .md-body p{margin:0 0 10px;line-height:1.6;color:var(--text-secondary);}
+  .md-body ul{margin:0 0 10px;padding-left:20px;}
+  .md-body li{margin-bottom:4px;line-height:1.55;color:var(--text-secondary);}
+  .md-body hr{border:none;border-top:1px solid var(--border);margin:16px 0;}
+  .md-body strong{color:var(--text-primary);font-weight:650;}
+  .md-body a{color:var(--accent-hover);text-decoration:none;}
+  .md-body a:hover{text-decoration:underline;}
+
+  /* badge */
+  .mockup-badge{position:fixed;right:16px;bottom:16px;background:rgba(17,24,39,.88);color:#fff;font-size:11px;font-weight:500;letter-spacing:.01em;padding:6px 11px;border-radius:7px;box-shadow:var(--shadow-md);z-index:50;}
+
+  @media (prefers-reduced-motion:reduce){
+    *{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important;}
+  }
+</style>
+</head>
+<body>
+
+<svg style="display:none" aria-hidden="true">
+  <symbol id="icon-scan" viewBox="0 0 24 24"><path d="M4 8V5a1 1 0 0 1 1-1h3"/><path d="M16 4h3a1 1 0 0 1 1 1v3"/><path d="M20 16v3a1 1 0 0 1-1 1h-3"/><path d="M8 20H5a1 1 0 0 1-1-1v-3"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8.2" r="3.2"/><path d="M5 20c0-3.5 3-6.2 7-6.2s7 2.7 7 6.2"/></symbol>
+  <symbol id="icon-layers" viewBox="0 0 24 24"><polygon points="12 3 3 8 12 13 21 8 12 3"/><polyline points="3 13 12 18 21 13"/></symbol>
+  <symbol id="icon-file" viewBox="0 0 24 24"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4"/><path d="M9 13.5h6M9 17h6"/></symbol>
+  <symbol id="icon-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7V5Z"/></symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="icon-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6.2 6.2l11.6 11.6"/></symbol>
+  <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></symbol>
+</svg>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <span class="brand-mark"><svg class="icon"><use href="#icon-scan"></use></svg></span>
+      <span class="brand-name">Job Scan</span>
+      <span class="brand-tag">Console</span>
+    </div>
+    <nav class="nav">
+      <a href="#profile" class="nav-item active" data-nav><svg class="icon"><use href="#icon-user"></use></svg>Profile</a>
+      <a href="#boards" class="nav-item" data-nav><svg class="icon"><use href="#icon-layers"></use></svg>Job boards</a>
+      <a href="#reports" class="nav-item" data-nav><svg class="icon"><use href="#icon-file"></use></svg>Reports</a>
+    </nav>
+    <div class="sidebar-footer">Scans run in Claude &middot; Indeed only</div>
+  </aside>
+
+  <main class="main">
+    <header class="topbar">
+      <div class="topbar-title">
+        <p class="eyebrow">Live console &middot; read-only</p>
+        <h1>Job Scan Console</h1>
+      </div>
+      <div class="status-inline" id="statusRow"><span class="spinner-sm" aria-hidden="true"></span><span id="statusLabel"></span></div>
+      <div class="run-controls">
+        <button class="btn-primary" id="runBtn">
+          <svg class="icon icon-fill icon-play" aria-hidden="true"><use href="#icon-play"></use></svg>
+          Run scan
+        </button>
+        <button class="btn-ghost" id="refreshBtn"><svg class="icon icon-sm"><use href="#icon-refresh"></use></svg>Refresh</button>
+        <div class="run-popover" id="runPopover" hidden>
+          <button class="popover-close" id="popoverClose" aria-label="Close">&times;</button>
+          <p>This console doesn&rsquo;t execute scans itself. Run one any time by asking Claude to run <code>/scan-jobs</code>, or ask Claude to schedule automatic daily scans. Click Refresh after a scan lands.</p>
+        </div>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="fatal-banner" id="fatalBanner" hidden>
+        <h3>Can&rsquo;t load data</h3>
+        <p>This page needs to be served over HTTP, not opened as a file. In a terminal, from the project folder: <code>python3 -m http.server 8642</code> &mdash; then open <code>http://localhost:8642/console/</code>. Opening this file directly (<code>file://</code>) can&rsquo;t fetch local reports or the profile.</p>
+      </div>
+
+      <section id="getStarted" class="card getstarted-card" hidden>
+        <h2>Welcome &mdash; let&rsquo;s set you up</h2>
+        <p class="getstarted-intro">This console displays your job-search profile and scan reports. Neither exists yet &mdash; a two-minute setup with Claude creates both.</p>
+        <ol class="getstarted-steps">
+          <li class="getstarted-step">
+            <span class="getstarted-step-num">1</span>
+            <div class="getstarted-step-body">
+              <h3 class="getstarted-step-title">Check prerequisites</h3>
+              <p class="getstarted-step-text">Claude desktop app with your Claude-Workshop folder connected, and the Indeed connector enabled. (Google Drive connector optional &mdash; only needed if your resume is a Google Doc.)</p>
+            </div>
+          </li>
+          <li class="getstarted-step">
+            <span class="getstarted-step-num">2</span>
+            <div class="getstarted-step-body">
+              <h3 class="getstarted-step-title">Ask Claude to onboard you</h3>
+              <p class="getstarted-step-text">Copy this prompt and paste it into Claude:</p>
+              <div class="getstarted-prompt-box">
+                <code id="onboardPrompt">Follow the setup instructions in my job-scan-console folder's CLAUDE.md and onboard me.</code>
+                <button type="button" class="btn-ghost" id="copyPromptBtn">Copy</button>
+              </div>
+            </div>
+          </li>
+          <li class="getstarted-step">
+            <span class="getstarted-step-num">3</span>
+            <div class="getstarted-step-body">
+              <h3 class="getstarted-step-title">Refresh this page</h3>
+              <p class="getstarted-step-text">When Claude finishes, your profile appears here &mdash; then run your first scan by asking Claude: <code>/scan-jobs</code>.</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <div class="grid-2col">
+        <section id="profile" class="card">
+          <div class="section-head">
+            <h2>Search profile</h2>
+            <p class="section-sub">Titles, locations, and pay the pipeline looks for.</p>
+          </div>
+          <p class="readonly-note">These fields are generated from <code>profile.md</code> at the project root. To change your criteria, make the update in a Claude session (e.g. &ldquo;raise my salary floor to $110K&rdquo;) &mdash; the console reflects the file on next refresh, and every scan reads it fresh. In-app editing is a planned future upgrade.</p>
+          <p class="inline-error" id="profileError" hidden>Couldn&rsquo;t load profile.md &mdash; is the server running?</p>
+
+          <div class="field">
+            <label class="field-label">Target titles</label>
+            <div class="chip-row" id="titleChips"></div>
+            <div class="add-row">
+              <input type="text" class="text-input" placeholder="Add another title&hellip;" disabled>
+              <button class="btn-ghost" disabled><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>Add</button>
+            </div>
+            <div class="excluded-row" id="excludedRow" hidden>
+              <span class="excluded-label">Excluded</span>
+              <div class="chip-row" id="excludedChips"></div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Location</label>
+            <div class="toggle-row" id="locationChips"></div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Salary floor</label>
+            <div id="salaryField"></div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Job type</label>
+            <div id="jobTypeField">
+              <div class="checkbox-row">
+                <label class="checkbox"><input type="checkbox" id="cbFulltime" disabled><span>Full-time</span></label>
+                <label class="checkbox"><input type="checkbox" id="cbContract" disabled><span>Contract / consulting</span></label>
+                <label class="checkbox"><input type="checkbox" id="cbParttime" disabled><span>Part-time</span></label>
+              </div>
+            </div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Dealbreakers</label>
+            <div class="chip-row" id="dealbreakerChips"></div>
+          </div>
+
+          <div class="field">
+            <label class="field-label">Freshness</label>
+            <div id="freshnessField"></div>
+          </div>
+
+          <div class="field" id="rubricField" hidden>
+            <button type="button" class="rubric-toggle" id="rubricToggle" aria-expanded="false" aria-controls="rubricPanel">
+              <span class="chevron" aria-hidden="true"></span>
+              <span class="rubric-toggle-label">Scoring rubric</span>
+            </button>
+            <div class="rubric-panel" id="rubricPanel"></div>
+          </div>
+        </section>
+
+        <section id="boards">
+          <div class="section-head">
+            <h2>Job boards</h2>
+            <p class="section-sub">Where the pipeline searches.</p>
+          </div>
+          <div class="board-card">
+            <div class="board-head">
+              <span class="board-mark">In</span>
+              <div class="board-name"><strong>Indeed</strong><span class="status-pill status-connected"><i class="dot"></i>Connected</span></div>
+            </div>
+            <p class="board-meta" id="boardMeta">Queries built from your target titles &times; locations</p>
+          </div>
+          <div class="board-card board-disabled">
+            <div class="board-head">
+              <span class="board-mark">Li</span>
+              <div class="board-name"><strong>LinkedIn</strong><span class="status-pill status-soon">Coming soon</span></div>
+            </div>
+            <p class="board-meta">Not connected yet.</p>
+          </div>
+          <div class="board-card board-disabled">
+            <div class="board-head">
+              <span class="board-mark">W</span>
+              <div class="board-name"><strong>Wellfound</strong><span class="status-pill status-soon">Coming soon</span></div>
+            </div>
+            <p class="board-meta">Not connected yet.</p>
+          </div>
+        </section>
+      </div>
+
+      <section id="reports" class="card">
+        <div class="section-head reports-head">
+          <div>
+            <h2>Reports</h2>
+            <p class="section-sub">Live from <code>/reports/</code>.</p>
+          </div>
+          <select id="reportPicker" class="report-picker mono" aria-label="Select report"></select>
+        </div>
+
+        <div id="reportEmpty" class="empty-state" hidden>No reports yet &mdash; reports appear here once a scan runs.</div>
+
+        <div id="reportContent">
+          <div class="warn-banner" id="failedBanner" hidden><strong>This run failed.</strong> The file below likely contains an error rather than results &mdash; see raw content.</div>
+          <p class="stats-row" id="statsRow"></p>
+          <div class="notice-banner" id="parseNotice" hidden>Couldn&rsquo;t find the expected job-entry structure in this report &mdash; showing the raw markdown below.</div>
+          <div class="md-body" id="introMarkdown"></div>
+          <div class="table-wrap" id="tableWrap">
+            <table class="report-table">
+              <colgroup>
+                <col style="width:5%"><col style="width:11%"><col style="width:22%"><col style="width:13%"><col style="width:16%"><col style="width:23%"><col style="width:10%">
+              </colgroup>
+              <thead>
+                <tr>
+                  <th class="c-rank">#</th>
+                  <th class="c-fit">Fit</th>
+                  <th>Title</th>
+                  <th>Company</th>
+                  <th>Location</th>
+                  <th class="c-salary">Salary</th>
+                  <th class="c-apply">Apply</th>
+                </tr>
+              </thead>
+              <tbody id="reportBody"></tbody>
+            </table>
+          </div>
+          <div class="md-body" id="tailMarkdown"></div>
+          <div class="md-body" id="mdFallback" hidden></div>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+
+<div class="mockup-badge">Console v0.6</div>
+
+<script>
+  /* ---------- generic helpers ---------- */
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function inlineFormat(text){
+    text = text.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|(https?:\/\/[^\s<>"')]+)/g,
+      (match, linkText, linkUrl, bareUrl) => {
+        if(bareUrl) return `<a href="${bareUrl}" target="_blank" rel="noopener noreferrer">${bareUrl}</a>`;
+        return `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`;
+      });
+    text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return text;
+  }
+
+  function renderMarkdownBlocks(md){
+    if(!md || !md.trim()) return '';
+    const lines = escapeHtml(md).split('\n');
+    const out = [];
+    let i = 0;
+    while(i < lines.length){
+      const line = lines[i];
+      if(line.trim() === ''){ i++; continue; }
+      if(/^-{3,}\s*$/.test(line.trim())){ out.push('<hr>'); i++; continue; }
+      if(/^##\s+/.test(line)){ out.push(`<h2>${inlineFormat(line.replace(/^##\s+/,''))}</h2>`); i++; continue; }
+      if(/^#\s+/.test(line)){ out.push(`<h1>${inlineFormat(line.replace(/^#\s+/,''))}</h1>`); i++; continue; }
+      if(/^[-*]\s+/.test(line)){
+        const items = [];
+        while(i < lines.length && /^[-*]\s+/.test(lines[i])){
+          items.push(`<li>${inlineFormat(lines[i].replace(/^[-*]\s+/,''))}</li>`);
+          i++;
+        }
+        out.push(`<ul>${items.join('')}</ul>`);
+        continue;
+      }
+      const para = [];
+      while(i < lines.length && lines[i].trim() !== '' && !/^(#{1,2}\s+|[-*]\s+|-{3,}\s*$)/.test(lines[i])){
+        para.push(lines[i]);
+        i++;
+      }
+      if(para.length) out.push(`<p>${inlineFormat(para.join(' '))}</p>`);
+    }
+    return out.join('\n');
+  }
+
+  function formatReportLabel(filename){
+    const m = filename.match(/^(\d{4})-(\d{2})-(\d{2})-(\d{2})(\d{2})/);
+    if(!m) return filename;
+    const [, y, mo, d, h, mi] = m;
+    const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    const monthName = months[parseInt(mo,10)-1] || mo;
+    return `${monthName} ${parseInt(d,10)} ${y} · ${h}:${mi}`;
+  }
+
+  /* ---------- report list + fetch ---------- */
+  let currentFile = null;
+
+  async function fetchReportList(){
+    const res = await fetch('/reports/', {cache: 'no-store'});
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    const html = await res.text();
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const hrefs = Array.from(doc.querySelectorAll('a')).map(a => a.getAttribute('href') || '');
+    const files = hrefs.filter(h => h.toLowerCase().endsWith('.md')).map(h => {
+      const raw = h.split('/').filter(Boolean).pop() || h;
+      try{ return decodeURIComponent(raw); } catch(e){ return raw; }
+    });
+    return Array.from(new Set(files)).sort().reverse();
+  }
+
+  function populatePicker(files){
+    const picker = document.getElementById('reportPicker');
+    picker.innerHTML = files.map(f => {
+      const failed = /FAILED/i.test(f);
+      const label = (failed ? '⚠ ' : '') + formatReportLabel(f) + (failed ? ' (failed)' : '');
+      return `<option value="${escapeHtml(f)}">${escapeHtml(label)}</option>`;
+    }).join('');
+  }
+
+  /* ---------- job entry parsing ---------- */
+  function parseJobs(md){
+    const lines = md.split('\n');
+    const jobs = [];
+    let current = null;
+    let firstHeaderLine = -1;
+    let lastFieldLine = -1;
+    for(let i = 0; i < lines.length; i++){
+      const line = lines[i];
+      const headerMatch = line.match(/^##\s+(\d+)\.\s*(.+)$/);
+      if(headerMatch){
+        if(firstHeaderLine === -1) firstHeaderLine = i;
+        if(current) jobs.push(current);
+        const rest = headerMatch[2].trim();
+        const dashIdx = rest.lastIndexOf('—');
+        current = {
+          rank: parseInt(headerMatch[1], 10),
+          title: dashIdx > -1 ? rest.slice(0, dashIdx).trim() : rest,
+          company: dashIdx > -1 ? rest.slice(dashIdx + 1).trim() : '',
+          location: '', salary: '', fit: null, why: '', apply: ''
+        };
+        lastFieldLine = i;
+        continue;
+      }
+      if(/^##\s+/.test(line)){
+        if(current){ jobs.push(current); current = null; }
+        continue;
+      }
+      if(!current) continue;
+      let m;
+      if((m = line.match(/^\*\*Location:\*\*\s*(.+)$/))){ current.location = m[1].trim(); lastFieldLine = i; continue; }
+      if((m = line.match(/^\*\*Salary:\*\*\s*(.+)$/))){ current.salary = m[1].trim(); lastFieldLine = i; continue; }
+      if((m = line.match(/^\*\*Fit:\*\*\s*([\d.]+)\s*\/\s*10/))){ current.fit = m[1]; lastFieldLine = i; continue; }
+      if((m = line.match(/^\*\*Why:\*\*\s*(.+)$/))){ current.why = m[1].trim(); lastFieldLine = i; continue; }
+      if((m = line.match(/^\*\*Apply:\*\*\s*(.+)$/))){ current.apply = m[1].trim(); lastFieldLine = i; continue; }
+    }
+    if(current) jobs.push(current);
+    if(jobs.length === 0) return null;
+    jobs.sort((a, b) => a.rank - b.rank);
+    const introMarkdown = firstHeaderLine > 0 ? lines.slice(0, firstHeaderLine).join('\n') : '';
+    const tailMarkdown = lastFieldLine > -1 ? lines.slice(lastFieldLine + 1).join('\n') : '';
+    return { jobs, introMarkdown, tailMarkdown };
+  }
+
+  function fitBar(fitStr){
+    const n = fitStr == null ? NaN : Math.round(parseFloat(fitStr));
+    if(Number.isNaN(n)) return '<span class="empty">' + '&#9617;'.repeat(10) + '</span>';
+    const clamped = Math.max(0, Math.min(10, n));
+    return `<span class="filled">${'▓'.repeat(clamped)}</span><span class="empty">${'░'.repeat(10 - clamped)}</span>`;
+  }
+
+  function jobRowHtml(job, i){
+    const open = i === 0;
+    const title = escapeHtml(job.title || '—');
+    const company = escapeHtml(job.company || '—');
+    const locHtml = escapeHtml(job.location || '—').replace(/\s*\(([^)]+)\)/, ' <span class="muted">($1)</span>');
+    const salary = escapeHtml(job.salary || '—');
+    const why = escapeHtml(job.why || 'No rationale provided.');
+    const fitLabel = job.fit == null ? '—' : escapeHtml(job.fit);
+    const applyHtml = job.apply
+      ? `<a href="${escapeHtml(job.apply)}" target="_blank" rel="noopener noreferrer">Apply <span aria-hidden="true">&#8599;</span></a>`
+      : '<span class="muted">—</span>';
+    return `<tr class="data-row${open ? ' open' : ''}" tabindex="0" role="button" aria-expanded="${open}">
+      <td class="c-rank"><span class="chevron"></span>${job.rank}</td>
+      <td class="c-fit"><span class="fit-score">${fitLabel}<small>/10</small></span><span class="fit-bar">${fitBar(job.fit)}</span></td>
+      <td class="c-title">${title}</td>
+      <td>${company}</td>
+      <td class="c-location">${locHtml}</td>
+      <td class="c-salary">${salary}</td>
+      <td class="c-apply">${applyHtml}</td>
+    </tr>
+    <tr class="rationale${open ? ' open' : ''}"><td colspan="7"><p class="rationale-text">${why}</p></td></tr>`;
+  }
+
+  function toggleRow(row){
+    const next = row.nextElementSibling;
+    if(!next || !next.classList.contains('rationale')) return;
+    const isOpen = next.classList.toggle('open');
+    row.classList.toggle('open', isOpen);
+    row.setAttribute('aria-expanded', String(isOpen));
+  }
+
+  /* ---------- report rendering ---------- */
+  const statsRow = document.getElementById('statsRow');
+  const failedBanner = document.getElementById('failedBanner');
+  const parseNotice = document.getElementById('parseNotice');
+  const introEl = document.getElementById('introMarkdown');
+  const tailEl = document.getElementById('tailMarkdown');
+  const tableWrap = document.getElementById('tableWrap');
+  const reportBody = document.getElementById('reportBody');
+  const mdFallback = document.getElementById('mdFallback');
+  const reportEmpty = document.getElementById('reportEmpty');
+  const reportContentEl = document.getElementById('reportContent');
+  const reportPicker = document.getElementById('reportPicker');
+
+  function updateStatsRow(filename, jobs){
+    const dt = formatReportLabel(filename);
+    if(jobs){
+      statsRow.innerHTML = `Scanned <span class="mono">${dt}</span> &middot; <span class="mono">${jobs.length}</span> ${jobs.length === 1 ? 'match' : 'matches'} parsed`;
+    } else {
+      statsRow.innerHTML = `Scanned <span class="mono">${dt}</span> &middot; showing raw report`;
+    }
+  }
+
+  async function loadReportByName(filename){
+    currentFile = filename;
+    reportPicker.value = filename;
+    let md;
+    try{
+      const res = await fetch('/reports/' + encodeURIComponent(filename), {cache: 'no-store'});
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      md = await res.text();
+    } catch(e){
+      failedBanner.hidden = true;
+      parseNotice.hidden = true;
+      introEl.innerHTML = '';
+      tableWrap.hidden = true;
+      reportBody.innerHTML = '';
+      tailEl.innerHTML = '';
+      mdFallback.hidden = false;
+      mdFallback.innerHTML = '<p>Couldn’t load this report file.</p>';
+      statsRow.innerHTML = '';
+      return;
+    }
+    failedBanner.hidden = !/FAILED/i.test(filename);
+    const parsed = parseJobs(md);
+    if(parsed){
+      parseNotice.hidden = true;
+      mdFallback.hidden = true;
+      mdFallback.innerHTML = '';
+      introEl.innerHTML = renderMarkdownBlocks(parsed.introMarkdown);
+      tableWrap.hidden = false;
+      reportBody.innerHTML = parsed.jobs.map(jobRowHtml).join('');
+      tailEl.innerHTML = renderMarkdownBlocks(parsed.tailMarkdown);
+      updateStatsRow(filename, parsed.jobs);
+    } else {
+      parseNotice.hidden = false;
+      introEl.innerHTML = '';
+      tableWrap.hidden = true;
+      reportBody.innerHTML = '';
+      tailEl.innerHTML = '';
+      mdFallback.hidden = false;
+      mdFallback.innerHTML = renderMarkdownBlocks(md);
+      updateStatsRow(filename, null);
+    }
+  }
+
+  async function loadReports(){
+    const files = await fetchReportList();
+    populatePicker(files);
+    if(files.length === 0){
+      reportEmpty.hidden = false;
+      reportContentEl.hidden = true;
+      return;
+    }
+    reportEmpty.hidden = true;
+    reportContentEl.hidden = false;
+    await loadReportByName(files[0]);
+  }
+
+  /* ---------- profile parsing ---------- */
+  function splitProfileSections(md){
+    const lines = md.split('\n');
+    const sections = {};
+    let key = null, buf = [];
+    function flush(){ if(key !== null) sections[key] = buf.join('\n').trim(); buf = []; }
+    for(const line of lines){
+      const m = line.match(/^##\s+(.+)$/);
+      if(m){ flush(); key = m[1].trim().toLowerCase(); continue; }
+      if(key !== null) buf.push(line);
+    }
+    flush();
+    return sections;
+  }
+
+  // Shared with updateBoardMeta's titleCount calculation -- keep this as the one place
+  // that turns a "target titles" section body into a list of title strings.
+  function parseTargetTitles(body){
+    if(body === undefined) return [];
+    return body.split('\n').map(l => l.trim()).filter(Boolean)
+      .filter(l => /^-\s+/.test(l)).map(l => l.replace(/^-\s+/, '').trim());
+  }
+
+  function renderTargetTitles(body){
+    const chips = document.getElementById('titleChips');
+    const exRow = document.getElementById('excludedRow');
+    const exChips = document.getElementById('excludedChips');
+    if(body === undefined){ chips.innerHTML = '<span class="parse-fail">Section not found.</span>'; exRow.hidden = true; return; }
+    const lines = body.split('\n').map(l => l.trim()).filter(Boolean);
+    const titles = parseTargetTitles(body);
+    if(titles.length === 0){ chips.innerHTML = `<span class="raw-fallback">${escapeHtml(body)}</span>`; exRow.hidden = true; return; }
+    chips.innerHTML = titles.map(t => `<span class="chip">${escapeHtml(t)}</span>`).join('');
+    const exLine = lines.find(l => /^\(Explicitly excludes:/i.test(l));
+    const exMatch = exLine && exLine.match(/^\(Explicitly excludes:\s*(.+)\)$/i);
+    if(exMatch){
+      const names = exMatch[1].split(',').map(s => s.trim()).filter(Boolean);
+      exRow.hidden = false;
+      exChips.innerHTML = names.map(n => `<span class="chip chip--muted">${escapeHtml(n)}</span>`).join('');
+    } else {
+      exRow.hidden = true;
+    }
+  }
+
+  function renderLocation(body){
+    const el = document.getElementById('locationChips');
+    if(body === undefined){ el.innerHTML = '<span class="parse-fail">Section not found.</span>'; return; }
+    const text = body.trim();
+    const m = text.match(/^Open to (.+?)\.?$/i);
+    const parts = m ? m[1].split(/\s+OR\s+/i).map(s => s.trim()).filter(Boolean) : [];
+    if(parts.length === 0){ el.innerHTML = `<span class="raw-fallback">${escapeHtml(text)}</span>`; return; }
+    el.innerHTML = parts.map(p => `<span class="toggle-chip">${escapeHtml(p.charAt(0).toUpperCase() + p.slice(1))}</span>`).join('');
+  }
+
+  // Rougher than renderLocation's "Open to X OR Y" parse -- used only for updateBoardMeta's
+  // location count, so it just needs an option count, not clean display strings. Strips
+  // parentheticals, then splits on "or" / "/" / "," and counts the non-empty pieces.
+  function parseLocationCount(body){
+    if(body === undefined) return 0;
+    const stripped = body.replace(/\([^)]*\)/g, '').replace(/,\s*(?=[A-Z]{2}\b)/g, ' ');
+    const parts = stripped.split(/\bor\b|\/|,/i).map(s => s.trim()).filter(Boolean);
+    return Math.max(1, Math.min(4, parts.length));
+  }
+
+  function renderSalary(body){
+    const wrap = document.getElementById('salaryField');
+    if(body === undefined){ wrap.innerHTML = '<span class="parse-fail">Section not found.</span>'; return; }
+    const m = body.trim().match(/([\d][\d,]*)/);
+    if(!m){ wrap.innerHTML = `<span class="raw-fallback">${escapeHtml(body.trim())}</span>`; return; }
+    wrap.innerHTML = `<div class="input-prefix"><span>$</span><input type="text" class="mono" value="${escapeHtml(m[1])}" disabled></div>`;
+  }
+
+  function renderJobType(body){
+    const wrap = document.getElementById('jobTypeField');
+    if(body === undefined){ wrap.innerHTML = '<span class="parse-fail">Section not found.</span>'; return; }
+    const t = body.toLowerCase();
+    const full = /full-?time/.test(t), contract = /contract|consulting/.test(t), part = /part-?time/.test(t);
+    if(!full && !contract && !part){ wrap.innerHTML = `<span class="raw-fallback">${escapeHtml(body.trim())}</span>`; return; }
+    document.getElementById('cbFulltime').checked = full;
+    document.getElementById('cbContract').checked = contract;
+    document.getElementById('cbParttime').checked = part;
+  }
+
+  function renderDealbreakers(body){
+    const el = document.getElementById('dealbreakerChips');
+    if(body === undefined){ el.innerHTML = '<span class="parse-fail">Section not found.</span>'; return; }
+    const bullets = body.split('\n').map(l => l.trim()).filter(l => /^-\s+/.test(l)).map(l => l.replace(/^-\s+/, '').trim());
+    if(bullets.length === 0){ el.innerHTML = `<span class="raw-fallback">${escapeHtml(body.trim())}</span>`; return; }
+    el.innerHTML = bullets.map(b => `<span class="chip"><svg class="icon icon-xs"><use href="#icon-ban"></use></svg>${escapeHtml(b)}</span>`).join('');
+  }
+
+  function renderFreshness(body){
+    const wrap = document.getElementById('freshnessField');
+    if(body === undefined){ wrap.innerHTML = '<span class="parse-fail">Section not found.</span>'; return; }
+    const m = body.match(/(\d+)\s*hours?/i);
+    if(!m){ wrap.innerHTML = `<span class="raw-fallback">${escapeHtml(body.trim())}</span>`; return; }
+    wrap.innerHTML = `<p class="field-sentence">Reject postings older than <input type="number" class="num-input mono" value="${escapeHtml(m[1])}" disabled> hours.</p>`;
+  }
+
+  /* ---------- scoring rubric (collapsible, parsed live from profile.md) ---------- */
+  function isRubricOpen(){
+    return document.getElementById('rubricToggle').getAttribute('aria-expanded') === 'true';
+  }
+
+  function setRubricOpen(open){
+    const toggle = document.getElementById('rubricToggle');
+    const panel = document.getElementById('rubricPanel');
+    toggle.setAttribute('aria-expanded', String(open));
+    panel.classList.toggle('open', open);
+    panel.style.maxHeight = open ? panel.scrollHeight + 'px' : '0px';
+  }
+
+  function wireRubricToggle(){
+    const toggle = document.getElementById('rubricToggle');
+    toggle.addEventListener('click', () => setRubricOpen(!isRubricOpen()));
+  }
+
+  // Wraps backtick spans and the "Fit score = ... out of 10" formula in <code>; everything else stays plain text.
+  function rubricInlineFormat(text){
+    let out = escapeHtml(text);
+    out = out.replace(/`([^`]+)`/g, '<code>$1</code>');
+    out = out.replace(/(Fit score\s*=.*?out of 10)/i, '<code>$1</code>');
+    return out;
+  }
+
+  // Splits a "## Scoring rubric" section body into its lead paragraph plus each "### " subsection,
+  // keeping subsection bullet lines raw (unsplit) for parseRubricLine to interpret.
+  function splitRubricByH3(body){
+    const lines = body.split('\n');
+    const introLines = [];
+    const subs = [];
+    let cur = null;
+    for(const line of lines){
+      const h3 = line.match(/^###\s+(.+)$/);
+      if(h3){ cur = { title: h3[1].trim(), rawLines: [] }; subs.push(cur); continue; }
+      if(cur) cur.rawLines.push(line); else introLines.push(line);
+    }
+    return { intro: introLines.join('\n').trim(), subs };
+  }
+
+  // "4 — Exact or near-exact match..." -> a point row. Anything else (the parenthetical
+  // exclusion note, the AI/domain lead-in sentence) -> a muted footnote line.
+  function parseRubricLine(line){
+    const stripped = line.replace(/^[-*]\s+/, '').trim();
+    const m = stripped.match(/^(\d+)\s*[—–-]\s*(.+)$/);
+    if(m) return { type: 'point', value: m[1], text: m[2].trim() };
+    return { type: 'note', text: stripped };
+  }
+
+  function renderRubricSubsection(sub){
+    const bodyLines = sub.rawLines.map(l => l.trim()).filter(Boolean);
+    if(bodyLines.length === 0) return '';
+    const rowsHtml = bodyLines.map(parseRubricLine).map(r => {
+      if(r.type === 'point'){
+        return `<div class="rubric-row"><span class="rubric-chip mono">${escapeHtml(r.value)}</span><span class="rubric-anchor-text">${rubricInlineFormat(r.text)}</span></div>`;
+      }
+      return `<p class="rubric-note">${rubricInlineFormat(r.text)}</p>`;
+    }).join('');
+    return `<div class="rubric-sub"><div class="rubric-sub-title">${escapeHtml(sub.title)}</div>${rowsHtml}</div>`;
+  }
+
+  // Calibration anchors are examples, not rules -- rendered as smaller muted "label: value" rows
+  // instead of the indigo point-chip treatment used for the scoring subsections.
+  function renderRubricCalibration(sub){
+    const bullets = sub.rawLines.map(l => l.trim()).filter(l => /^[-*]\s+/.test(l)).map(l => l.replace(/^[-*]\s+/, '').trim());
+    if(bullets.length === 0) return '';
+    const rowsHtml = bullets.map(line => {
+      const idx = line.indexOf(':');
+      if(idx > -1){
+        const label = line.slice(0, idx).trim();
+        const value = line.slice(idx + 1).trim();
+        return `<div class="rubric-calib-row"><span>${escapeHtml(label)}</span><span class="mono">${escapeHtml(value)}</span></div>`;
+      }
+      return `<div class="rubric-calib-row"><span>${escapeHtml(line)}</span></div>`;
+    }).join('');
+    return `<div class="rubric-calibration"><div class="rubric-sub-title">${escapeHtml(sub.title)}</div>${rowsHtml}</div>`;
+  }
+
+  function renderScoringRubric(body){
+    const field = document.getElementById('rubricField');
+    const panel = document.getElementById('rubricPanel');
+    if(!body || !body.trim()){ field.hidden = true; return; }
+    const { intro, subs } = splitRubricByH3(body);
+    if(subs.length === 0){
+      // Structure isn't what we expect at all (no ### subsections found) -- show the raw text
+      // rather than hiding or erroring.
+      field.hidden = false;
+      panel.innerHTML = `<span class="raw-fallback">${escapeHtml(body.trim())}</span>`;
+      if(isRubricOpen()) panel.style.maxHeight = panel.scrollHeight + 'px';
+      return;
+    }
+    const calibIdx = subs.findIndex(s => /calibration/i.test(s.title));
+    const mainSubs = calibIdx > -1 ? subs.filter((_, i) => i !== calibIdx) : subs;
+    const calibSub = calibIdx > -1 ? subs[calibIdx] : null;
+    let html = intro ? `<p class="rubric-intro">${rubricInlineFormat(intro)}</p>` : '';
+    html += mainSubs.map(renderRubricSubsection).join('');
+    if(calibSub) html += renderRubricCalibration(calibSub);
+    field.hidden = false;
+    panel.innerHTML = html;
+    // Content may have changed size on a refresh; keep an already-open panel fitted.
+    if(isRubricOpen()) panel.style.maxHeight = panel.scrollHeight + 'px';
+  }
+
+  // Job boards card meta ("N queries per scan · N titles × N locations"), derived from the
+  // same profile sections the fields above already parsed. Leaves the generic HTML fallback
+  // in place if either count can't be parsed.
+  function updateBoardMeta(sections){
+    const boardMeta = document.getElementById('boardMeta');
+    const titleCount = parseTargetTitles(sections['target titles']).length;
+    const locCount = parseLocationCount(sections['location']);
+    if(titleCount > 0 && locCount > 0){
+      const titleWord = titleCount === 1 ? 'title' : 'titles';
+      const locWord = locCount === 1 ? 'location' : 'locations';
+      boardMeta.textContent = `${titleCount * locCount} queries per scan · ${titleCount} ${titleWord} × ${locCount} ${locWord}`;
+    }
+  }
+
+  async function loadProfile(){
+    const res = await fetch('/profile.md', {cache: 'no-store'});
+    if(!res.ok){
+      const err = new Error('HTTP ' + res.status);
+      err.status = res.status;
+      throw err;
+    }
+    const text = await res.text();
+    const sections = splitProfileSections(text);
+    renderTargetTitles(sections['target titles']);
+    renderLocation(sections['location']);
+    renderSalary(sections['salary floor']);
+    renderJobType(sections['job type']);
+    renderDealbreakers(sections['dealbreakers']);
+    renderFreshness(sections['freshness rule']);
+    renderScoringRubric(sections['scoring rubric']);
+    updateBoardMeta(sections);
+  }
+
+  /* ---------- run popover + refresh ---------- */
+  const runBtn = document.getElementById('runBtn');
+  const runPopover = document.getElementById('runPopover');
+  const refreshBtn = document.getElementById('refreshBtn');
+  const statusRow = document.getElementById('statusRow');
+  const statusLabel = document.getElementById('statusLabel');
+  const fatalBanner = document.getElementById('fatalBanner');
+  const profileError = document.getElementById('profileError');
+  const getStartedSection = document.getElementById('getStarted');
+  const profileSection = document.getElementById('profile');
+  const boardsSection = document.getElementById('boards');
+  const reportsSection = document.getElementById('reports');
+
+  // Toggles between the normal dashboard (profile/boards/reports) and the first-run
+  // "get started" panel. Both directions are handled so a profile.md that appears after
+  // a refresh brings the dashboard back.
+  function showGetStarted(show){
+    getStartedSection.hidden = !show;
+    profileSection.hidden = show;
+    boardsSection.hidden = show;
+    reportsSection.hidden = show;
+  }
+
+  // Single place that interprets a loadProfile() outcome: 404 means profile.md hasn't been
+  // created yet (show the get-started panel), any other failure keeps the pre-existing
+  // profileError notice, and success shows the dashboard as normal.
+  async function loadProfileAndSync(){
+    try{
+      await loadProfile();
+      profileError.hidden = true;
+      showGetStarted(false);
+    } catch(e){
+      if(e && e.status === 404){
+        showGetStarted(true);
+        profileError.hidden = true;
+      } else {
+        showGetStarted(false);
+        profileError.hidden = false;
+      }
+    }
+  }
+
+  function wireCopyPrompt(){
+    const btn = document.getElementById('copyPromptBtn');
+    const promptEl = document.getElementById('onboardPrompt');
+    if(!btn || !promptEl) return;
+    const originalLabel = btn.textContent;
+    btn.addEventListener('click', async () => {
+      try{
+        await navigator.clipboard.writeText(promptEl.textContent.trim());
+        btn.textContent = 'Copied ✓';
+        setTimeout(() => { btn.textContent = originalLabel; }, 1500);
+      } catch(e){
+        // clipboard write blocked (permissions, insecure context, etc.) -- leave the label as-is
+      }
+    });
+  }
+
+  function wirePopover(){
+    runBtn.addEventListener('click', e => { e.stopPropagation(); runPopover.hidden = !runPopover.hidden; });
+    document.getElementById('popoverClose').addEventListener('click', () => { runPopover.hidden = true; });
+    document.addEventListener('click', e => {
+      if(runPopover.hidden) return;
+      if(e.target.closest('#runPopover') || e.target.closest('#runBtn')) return;
+      runPopover.hidden = true;
+    });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape') runPopover.hidden = true; });
+  }
+
+  async function handleRefresh(){
+    refreshBtn.disabled = true;
+    statusRow.classList.add('visible');
+    statusLabel.textContent = 'Refreshing…';
+    try{
+      const files = await fetchReportList();
+      populatePicker(files);
+      if(files.length === 0){
+        reportEmpty.hidden = false;
+        reportContentEl.hidden = true;
+      } else {
+        reportEmpty.hidden = true;
+        reportContentEl.hidden = false;
+        const target = (currentFile && files.includes(currentFile)) ? currentFile : files[0];
+        await loadReportByName(target);
+      }
+      fatalBanner.hidden = true;
+    } catch(e){
+      fatalBanner.hidden = false;
+    }
+    await loadProfileAndSync();
+    statusRow.classList.remove('visible');
+    refreshBtn.disabled = false;
+  }
+
+  /* ---------- nav + init ---------- */
+  function wireNav(){
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+        item.classList.add('active');
+      });
+    });
+  }
+
+  async function init(){
+    wireNav();
+    wirePopover();
+    wireRubricToggle();
+    wireCopyPrompt();
+    refreshBtn.addEventListener('click', handleRefresh);
+    reportPicker.addEventListener('change', () => loadReportByName(reportPicker.value));
+    reportBody.addEventListener('click', e => {
+      if(e.target.closest('a')) return;
+      const row = e.target.closest('.data-row');
+      if(row) toggleRow(row);
+    });
+    reportBody.addEventListener('keydown', e => {
+      if(e.key !== 'Enter' && e.key !== ' ') return;
+      if(e.target.closest('a')) return;
+      const row = e.target.closest('.data-row');
+      if(!row) return;
+      e.preventDefault();
+      toggleRow(row);
+    });
+
+    if(location.protocol === 'file:'){
+      fatalBanner.hidden = false;
+      reportEmpty.hidden = false;
+      reportContentEl.hidden = true;
+    } else {
+      try{ await loadReports(); }
+      catch(e){ fatalBanner.hidden = false; reportEmpty.hidden = false; reportContentEl.hidden = true; }
+    }
+
+    await loadProfileAndSync();
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
