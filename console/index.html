@@ -780,11 +780,14 @@
 
   let queueEntries = loadQueue();
 
-  // Keyed on report filename + the report's own rank number, so the same job re-appearing
-  // in a later report's scan is treated as a distinct queueable entry, and re-sorting never
-  // changes a row's key.
+  // Keyed on report filename + the posting itself, so the same job re-appearing in a later
+  // report's scan is treated as a distinct queueable entry, and re-sorting never changes a
+  // row's key. Identifies the posting by apply URL rather than rank: if a report file is ever
+  // regenerated in place, rank N becomes a different job and a rank-based key would silently
+  // mark the wrong row as queued. Falls back to title+company when a posting has no link.
   function queueKeyFor(job){
-    return currentFile + '::' + job.rank;
+    const ident = job.apply || ((job.title || '') + '|' + (job.company || ''));
+    return currentFile + '::' + ident;
   }
 
   function isQueued(key){
