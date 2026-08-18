@@ -129,9 +129,6 @@
   .chip-row{display:flex;flex-wrap:wrap;gap:8px;}
   .chip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;background:#f3f4f6;border:1px solid var(--border);border-radius:999px;font-size:12.5px;color:var(--text-primary);}
   .chip--muted{background:transparent;border-style:dashed;border-color:var(--border-strong);color:var(--text-tertiary);text-decoration:line-through;text-decoration-color:var(--border-strong);}
-  .add-row{display:flex;gap:8px;margin-top:12px;}
-  .text-input{border:1px solid var(--border);border-radius:7px;padding:8px 10px;font-size:13.5px;background:var(--surface);width:100%;}
-  .add-row .text-input{max-width:260px;}
   .excluded-row{display:flex;align-items:center;gap:10px;margin-top:12px;}
   .excluded-label{font-size:10.5px;font-weight:650;text-transform:uppercase;letter-spacing:.05em;color:var(--text-tertiary);}
 
@@ -154,7 +151,8 @@
   .rubric-toggle{display:flex;align-items:center;gap:8px;width:100%;padding:0;text-align:left;}
   .rubric-toggle-label{font-size:11.5px;font-weight:650;text-transform:uppercase;letter-spacing:.045em;color:var(--text-secondary);}
   .rubric-toggle:hover .rubric-toggle-label{color:var(--text-primary);}
-  .rubric-toggle[aria-expanded="true"] .chevron::before{content:'▾';color:var(--accent);}
+  .rubric-toggle[aria-expanded="true"] .chevron{background:var(--accent-subtle);color:var(--accent);}
+  .rubric-toggle[aria-expanded="true"] .chevron-icon{transform:rotate(90deg);}
   .rubric-panel{max-height:0;opacity:0;overflow:hidden;transition:max-height .28s ease,opacity .22s ease;}
   .rubric-panel.open{opacity:1;}
   .rubric-panel>*:last-child{margin-bottom:0;}
@@ -195,13 +193,21 @@
   .table-wrap{overflow-x:auto;margin:0 -24px;padding:0 24px;}
   .report-table{width:100%;min-width:860px;border-collapse:collapse;table-layout:fixed;}
   .report-table th{text-align:left;text-transform:uppercase;letter-spacing:.06em;font-size:10.5px;font-weight:650;color:var(--text-tertiary);padding:7px 8px;border-bottom:1px solid var(--border-strong);}
+  .report-table th.sortable{cursor:pointer;user-select:none;}
+  .report-table th.sortable:hover{color:var(--text-secondary);}
+  .report-table th.sortable:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:3px;}
+  .report-table th.sort-active{color:var(--text-primary);}
+  .sort-arrow{display:inline-block;margin-left:3px;font-size:9px;color:var(--border-strong);}
+  .report-table th.sort-active .sort-arrow{color:var(--accent);}
   .report-table td{padding:8px 8px;border-bottom:1px solid var(--border);vertical-align:middle;font-size:13px;color:var(--text-primary);}
   .data-row{cursor:pointer;}
   .data-row:hover{background:#fafafb;}
   .data-row.open{background:var(--accent-subtle);}
-  .chevron{display:inline-block;width:11px;font-size:9px;color:var(--text-tertiary);}
-  .chevron::before{content:'▸';}
-  .data-row.open .chevron::before{content:'▾';color:var(--accent);}
+  .chevron{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;color:var(--text-tertiary);flex-shrink:0;vertical-align:middle;transition:background .15s,color .15s;}
+  .chevron-icon{width:14px;height:14px;stroke-width:2.5;transition:transform .18s ease;}
+  .data-row:hover .chevron,.data-row:focus-visible .chevron{background:var(--bg);color:var(--text-secondary);}
+  .data-row.open .chevron{background:var(--accent-subtle);color:var(--accent);}
+  .data-row.open .chevron-icon{transform:rotate(90deg);}
   .c-rank{text-align:center;white-space:nowrap;color:var(--text-tertiary);font-size:12px;}
   .c-fit{white-space:nowrap;}
   .fit-score{display:block;font-family:var(--font-mono);font-weight:700;font-size:13px;color:var(--text-primary);font-variant-numeric:tabular-nums;}
@@ -220,6 +226,27 @@
   tr.rationale.open{display:table-row;}
   tr.rationale td{padding:0 8px 14px;border-bottom:1px solid var(--border);background:var(--accent-subtle);}
   .rationale-text{font-size:12.5px;color:var(--text-secondary);font-style:italic;padding-left:10px;border-left:2px solid var(--accent-border);}
+  .c-queue{text-align:right;white-space:nowrap;}
+  .queue-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11.5px;font-weight:600;color:var(--text-secondary);background:var(--surface);white-space:nowrap;transition:border-color .15s,color .15s,background .15s;}
+  .queue-btn:hover{border-color:var(--border-strong);color:var(--text-primary);}
+  .queue-btn.queued{border-color:var(--success-border);background:var(--success-subtle);color:var(--success);}
+  .queue-btn.queued:hover{border-color:var(--success);}
+
+  /* application queue */
+  .queue-item{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:14px 0;border-bottom:1px solid var(--border);}
+  .queue-item:first-child{padding-top:0;}
+  .queue-item:last-child{border-bottom:none;padding-bottom:0;}
+  .queue-item-title{font-size:13.5px;font-weight:650;color:var(--text-primary);margin:0 0 3px;}
+  .queue-item-meta{font-size:12.5px;color:var(--text-secondary);margin:0 0 3px;}
+  .queue-item-source{font-size:11.5px;color:var(--text-tertiary);margin:0;}
+  .queue-item-actions{display:flex;align-items:center;gap:12px;flex-shrink:0;padding-top:1px;}
+  .queue-item-actions a{color:var(--accent-hover);font-weight:600;font-size:12.5px;text-decoration:none;white-space:nowrap;}
+  .queue-item-actions a:hover{text-decoration:underline;}
+  .queue-item-actions .muted{color:var(--text-tertiary);font-size:12.5px;}
+
+  /* sidebar nav badge */
+  .nav-badge{margin-left:auto;flex-shrink:0;min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;font-size:10.5px;font-weight:700;color:var(--accent-hover);background:var(--accent-subtle);border:1px solid var(--accent-border);border-radius:999px;}
+  .nav-badge[hidden]{display:none;}
 
   /* markdown render */
   .md-body{font-size:13.5px;}
@@ -250,9 +277,10 @@
   <symbol id="icon-layers" viewBox="0 0 24 24"><polygon points="12 3 3 8 12 13 21 8 12 3"/><polyline points="3 13 12 18 21 13"/></symbol>
   <symbol id="icon-file" viewBox="0 0 24 24"><path d="M7 3h7l4 4v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1Z"/><path d="M14 3v4h4"/><path d="M9 13.5h6M9 17h6"/></symbol>
   <symbol id="icon-play" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7V5Z"/></symbol>
-  <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="icon-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M6.2 6.2l11.6 11.6"/></symbol>
   <symbol id="icon-refresh" viewBox="0 0 24 24"><path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"/><path d="M3 21v-5h5"/></symbol>
+  <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="icon-bookmark" viewBox="0 0 24 24"><path d="M6 4h12a1 1 0 0 1 1 1v15l-7-4-7 4V5a1 1 0 0 1 1-1Z"/></symbol>
 </svg>
 
 <div class="app-shell">
@@ -266,6 +294,7 @@
       <a href="#profile" class="nav-item active" data-nav><svg class="icon"><use href="#icon-user"></use></svg>Profile</a>
       <a href="#boards" class="nav-item" data-nav><svg class="icon"><use href="#icon-layers"></use></svg>Job boards</a>
       <a href="#reports" class="nav-item" data-nav><svg class="icon"><use href="#icon-file"></use></svg>Reports</a>
+      <a href="#queue" class="nav-item" data-nav><svg class="icon"><use href="#icon-bookmark"></use></svg>Queue<span class="nav-badge" id="queueBadge" hidden>0</span></a>
     </nav>
     <div class="sidebar-footer">Scans run in Claude &middot; Indeed only</div>
   </aside>
@@ -340,10 +369,6 @@
           <div class="field">
             <label class="field-label">Target titles</label>
             <div class="chip-row" id="titleChips"></div>
-            <div class="add-row">
-              <input type="text" class="text-input" placeholder="Add another title&hellip;" disabled>
-              <button class="btn-ghost" disabled><svg class="icon icon-sm"><use href="#icon-plus"></use></svg>Add</button>
-            </div>
             <div class="excluded-row" id="excludedRow" hidden>
               <span class="excluded-label">Excluded</span>
               <div class="chip-row" id="excludedChips"></div>
@@ -383,7 +408,7 @@
 
           <div class="field" id="rubricField" hidden>
             <button type="button" class="rubric-toggle" id="rubricToggle" aria-expanded="false" aria-controls="rubricPanel">
-              <span class="chevron" aria-hidden="true"></span>
+              <span class="chevron" aria-hidden="true"><svg class="icon chevron-icon"><use href="#icon-chevron"></use></svg></span>
               <span class="rubric-toggle-label">Scoring rubric</span>
             </button>
             <div class="rubric-panel" id="rubricPanel"></div>
@@ -438,17 +463,18 @@
           <div class="table-wrap" id="tableWrap">
             <table class="report-table">
               <colgroup>
-                <col style="width:5%"><col style="width:11%"><col style="width:22%"><col style="width:13%"><col style="width:16%"><col style="width:23%"><col style="width:10%">
+                <col style="width:5%"><col style="width:10%"><col style="width:20%"><col style="width:12%"><col style="width:13%"><col style="width:18%"><col style="width:8%"><col style="width:14%">
               </colgroup>
               <thead>
                 <tr>
-                  <th class="c-rank">#</th>
-                  <th class="c-fit">Fit</th>
-                  <th>Title</th>
-                  <th>Company</th>
-                  <th>Location</th>
-                  <th class="c-salary">Salary</th>
+                  <th class="c-rank sortable" data-sort="rank" tabindex="0" role="button" aria-sort="none">#<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="c-fit sortable" data-sort="fit" tabindex="0" role="button" aria-sort="none">Fit<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="sortable" data-sort="title" tabindex="0" role="button" aria-sort="none">Title<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="sortable" data-sort="company" tabindex="0" role="button" aria-sort="none">Company<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="sortable" data-sort="location" tabindex="0" role="button" aria-sort="none">Location<span class="sort-arrow" aria-hidden="true"></span></th>
+                  <th class="c-salary sortable" data-sort="salary" tabindex="0" role="button" aria-sort="none">Salary<span class="sort-arrow" aria-hidden="true"></span></th>
                   <th class="c-apply">Apply</th>
+                  <th class="c-queue">Queue</th>
                 </tr>
               </thead>
               <tbody id="reportBody"></tbody>
@@ -458,11 +484,20 @@
           <div class="md-body" id="mdFallback" hidden></div>
         </div>
       </section>
+
+      <section id="queue" class="card">
+        <div class="section-head">
+          <h2>Application queue</h2>
+          <p class="section-sub">Jobs you&rsquo;ve flagged to apply to, saved in this browser and kept across reports.</p>
+        </div>
+        <div id="queueEmpty" class="empty-state">Nothing queued yet &mdash; use &ldquo;Queue&rdquo; on a job row to add it here.</div>
+        <div id="queueList"></div>
+      </section>
     </div>
   </main>
 </div>
 
-<div class="mockup-badge">Console v0.6</div>
+<div class="mockup-badge">Console v0.7</div>
 
 <script>
   /* ---------- generic helpers ---------- */
@@ -521,6 +556,9 @@
 
   /* ---------- report list + fetch ---------- */
   let currentFile = null;
+  let currentJobs = [];               // the current report's jobs, in the report's native rank order (never mutated by sorting)
+  let sortState = { col: null, dir: 'asc' }; // active column sort; col: null means native rank order
+  let openRanks = new Set();          // job.rank values whose rationale row is expanded -- survives re-render/sort
 
   async function fetchReportList(){
     const res = await fetch('/reports/', {cache: 'no-store'});
@@ -595,8 +633,7 @@
     return `<span class="filled">${'▓'.repeat(clamped)}</span><span class="empty">${'░'.repeat(10 - clamped)}</span>`;
   }
 
-  function jobRowHtml(job, i){
-    const open = i === 0;
+  function jobRowHtml(job, isOpen){
     const title = escapeHtml(job.title || '—');
     const company = escapeHtml(job.company || '—');
     const locHtml = escapeHtml(job.location || '—').replace(/\s*\(([^)]+)\)/, ' <span class="muted">($1)</span>');
@@ -606,16 +643,18 @@
     const applyHtml = job.apply
       ? `<a href="${escapeHtml(job.apply)}" target="_blank" rel="noopener noreferrer">Apply <span aria-hidden="true">&#8599;</span></a>`
       : '<span class="muted">—</span>';
-    return `<tr class="data-row${open ? ' open' : ''}" tabindex="0" role="button" aria-expanded="${open}">
-      <td class="c-rank"><span class="chevron"></span>${job.rank}</td>
+    const qKey = queueKeyFor(job);
+    return `<tr class="data-row${isOpen ? ' open' : ''}" tabindex="0" role="button" aria-expanded="${isOpen}" data-rank="${job.rank}">
+      <td class="c-rank"><span class="chevron" aria-hidden="true"><svg class="icon chevron-icon"><use href="#icon-chevron"></use></svg></span>${job.rank}</td>
       <td class="c-fit"><span class="fit-score">${fitLabel}<small>/10</small></span><span class="fit-bar">${fitBar(job.fit)}</span></td>
       <td class="c-title">${title}</td>
       <td>${company}</td>
       <td class="c-location">${locHtml}</td>
       <td class="c-salary">${salary}</td>
       <td class="c-apply">${applyHtml}</td>
+      <td class="c-queue">${queueButtonHtml(qKey, isQueued(qKey))}</td>
     </tr>
-    <tr class="rationale${open ? ' open' : ''}"><td colspan="7"><p class="rationale-text">${why}</p></td></tr>`;
+    <tr class="rationale${isOpen ? ' open' : ''}"><td colspan="8"><p class="rationale-text">${why}</p></td></tr>`;
   }
 
   function toggleRow(row){
@@ -624,6 +663,232 @@
     const isOpen = next.classList.toggle('open');
     row.classList.toggle('open', isOpen);
     row.setAttribute('aria-expanded', String(isOpen));
+    const rank = parseInt(row.dataset.rank, 10);
+    if(!Number.isNaN(rank)){
+      if(isOpen) openRanks.add(rank); else openRanks.delete(rank);
+    }
+  }
+
+  /* ---------- column sorting ---------- */
+  // Parses free-text salary values ("$120K–$140K", "$95,000", "Not listed") into a
+  // single comparable number: first numeric run found, comma-stripped, with a K/k
+  // suffix multiplying by 1000. Returns NaN when nothing numeric is present.
+  function parseSalaryValue(s){
+    if(!s) return NaN;
+    const m = String(s).match(/(\d[\d,]*(?:\.\d+)?)\s*([Kk])?/);
+    if(!m) return NaN;
+    const n = parseFloat(m[1].replace(/,/g, ''));
+    if(Number.isNaN(n)) return NaN;
+    return m[2] ? n * 1000 : n;
+  }
+
+  // Extracts the sort key for a job + column. Returns null for anything that should
+  // sort last (missing/unparseable) regardless of direction.
+  function sortValueFor(job, col){
+    switch(col){
+      case 'rank': return job.rank;
+      case 'fit': { const n = parseFloat(job.fit); return Number.isNaN(n) ? null : n; }
+      case 'title': return job.title ? job.title.toLowerCase() : null;
+      case 'company': return job.company ? job.company.toLowerCase() : null;
+      case 'location': return job.location ? job.location.toLowerCase() : null;
+      case 'salary': { const n = parseSalaryValue(job.salary); return Number.isNaN(n) ? null : n; }
+      default: return null;
+    }
+  }
+
+  // Sorts a copy of `jobs` by column key + direction. Missing/unparseable values always
+  // sort last, in both asc and desc, so they never interleave with real values. The
+  // underlying array is never mutated -- rank order (the report's native order) is
+  // recovered simply by sorting the # column ascending.
+  function sortJobs(jobs, col, dir){
+    if(!col) return jobs.slice();
+    const sorted = jobs.slice();
+    sorted.sort((a, b) => {
+      const va = sortValueFor(a, col);
+      const vb = sortValueFor(b, col);
+      const aMissing = va === null;
+      const bMissing = vb === null;
+      if(aMissing && bMissing) return 0;
+      if(aMissing) return 1;
+      if(bMissing) return -1;
+      const cmp = typeof va === 'number' ? va - vb : (va < vb ? -1 : va > vb ? 1 : 0);
+      return dir === 'asc' ? cmp : -cmp;
+    });
+    return sorted;
+  }
+
+  function renderJobRows(){
+    const sorted = sortJobs(currentJobs, sortState.col, sortState.dir);
+    reportBody.innerHTML = sorted.map(job => jobRowHtml(job, openRanks.has(job.rank))).join('');
+  }
+
+  function updateSortHeaderUI(){
+    document.querySelectorAll('.report-table thead th.sortable').forEach(th => {
+      const col = th.dataset.sort;
+      const arrow = th.querySelector('.sort-arrow');
+      if(sortState.col === col){
+        th.classList.add('sort-active');
+        th.setAttribute('aria-sort', sortState.dir === 'asc' ? 'ascending' : 'descending');
+        if(arrow) arrow.textContent = sortState.dir === 'asc' ? '▲' : '▼';
+      } else {
+        th.classList.remove('sort-active');
+        th.setAttribute('aria-sort', 'none');
+        if(arrow) arrow.textContent = '▵';
+      }
+    });
+  }
+
+  function applySort(col){
+    if(sortState.col === col){
+      sortState.dir = sortState.dir === 'asc' ? 'desc' : 'asc';
+    } else {
+      sortState = { col, dir: 'asc' };
+    }
+    renderJobRows();
+    updateSortHeaderUI();
+  }
+
+  function wireSortHeaders(){
+    document.querySelectorAll('.report-table thead th.sortable').forEach(th => {
+      th.addEventListener('click', () => applySort(th.dataset.sort));
+      th.addEventListener('keydown', e => {
+        if(e.key !== 'Enter' && e.key !== ' ') return;
+        e.preventDefault();
+        applySort(th.dataset.sort);
+      });
+    });
+  }
+
+  /* ---------- application queue (UI-only, localStorage) ---------- */
+  // Namespaced so this shared, student-cloned repo never collides with another local
+  // project's localStorage on the same origin/port.
+  const QUEUE_STORAGE_KEY = 'jobScanConsole.queue.v1';
+
+  function loadQueue(){
+    try{
+      const raw = localStorage.getItem(QUEUE_STORAGE_KEY);
+      if(!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch(e){ return []; }
+  }
+
+  function saveQueue(queue){
+    try{ localStorage.setItem(QUEUE_STORAGE_KEY, JSON.stringify(queue)); }
+    catch(e){ /* storage unavailable/full -- in-memory state still reflects correctly this session */ }
+  }
+
+  let queueEntries = loadQueue();
+
+  // Keyed on report filename + the report's own rank number, so the same job re-appearing
+  // in a later report's scan is treated as a distinct queueable entry, and re-sorting never
+  // changes a row's key.
+  function queueKeyFor(job){
+    return currentFile + '::' + job.rank;
+  }
+
+  function isQueued(key){
+    return queueEntries.some(e => e.key === key);
+  }
+
+  function queueButtonHtml(key, queued){
+    const label = queued ? 'Queued <span aria-hidden="true">&#10003;</span>' : 'Queue';
+    return `<button type="button" class="queue-btn${queued ? ' queued' : ''}" data-queue-key="${escapeHtml(key)}" aria-pressed="${queued}">${label}</button>`;
+  }
+
+  function setQueueButtonState(btn, queued){
+    btn.classList.toggle('queued', queued);
+    btn.setAttribute('aria-pressed', String(queued));
+    btn.innerHTML = queued ? 'Queued <span aria-hidden="true">&#10003;</span>' : 'Queue';
+  }
+
+  function updateQueueBadge(){
+    const badge = document.getElementById('queueBadge');
+    const n = queueEntries.length;
+    badge.textContent = String(n);
+    badge.hidden = n === 0;
+  }
+
+  function queueEntryHtml(entry){
+    const title = escapeHtml(entry.title || '—');
+    const company = escapeHtml(entry.company || '—');
+    const location = escapeHtml(entry.location || '—');
+    const fitLabel = (entry.fit == null || entry.fit === '') ? '—' : escapeHtml(entry.fit);
+    const applyHtml = entry.apply
+      ? `<a href="${escapeHtml(entry.apply)}" target="_blank" rel="noopener noreferrer">Apply <span aria-hidden="true">&#8599;</span></a>`
+      : '<span class="muted">—</span>';
+    const sourceLabel = entry.sourceReport ? formatReportLabel(entry.sourceReport) : '—';
+    return `<div class="queue-item">
+      <div class="queue-item-main">
+        <p class="queue-item-title">${title}</p>
+        <p class="queue-item-meta">${company} &middot; ${location} &middot; Fit ${fitLabel}/10</p>
+        <p class="queue-item-source">From ${escapeHtml(sourceLabel)}</p>
+      </div>
+      <div class="queue-item-actions">
+        ${applyHtml}
+        <button type="button" class="btn-ghost queue-remove-btn" data-remove-key="${escapeHtml(entry.key)}">Remove</button>
+      </div>
+    </div>`;
+  }
+
+  function renderQueue(){
+    const listEl = document.getElementById('queueList');
+    const emptyEl = document.getElementById('queueEmpty');
+    if(queueEntries.length === 0){
+      emptyEl.hidden = false;
+      listEl.innerHTML = '';
+      return;
+    }
+    emptyEl.hidden = true;
+    // Most recently queued first.
+    listEl.innerHTML = queueEntries.slice().reverse().map(queueEntryHtml).join('');
+  }
+
+  function addToQueue(job){
+    const key = queueKeyFor(job);
+    if(isQueued(key)) return;
+    queueEntries.push({
+      key,
+      title: job.title || '',
+      company: job.company || '',
+      location: job.location || '',
+      fit: job.fit,
+      apply: job.apply || '',
+      sourceReport: currentFile,
+      queuedAt: new Date().toISOString()
+    });
+    saveQueue(queueEntries);
+    renderQueue();
+    updateQueueBadge();
+  }
+
+  function removeFromQueue(key){
+    queueEntries = queueEntries.filter(e => e.key !== key);
+    saveQueue(queueEntries);
+    renderQueue();
+    updateQueueBadge();
+    const btn = reportBody.querySelector(`.queue-btn[data-queue-key="${CSS.escape(key)}"]`);
+    if(btn) setQueueButtonState(btn, false);
+  }
+
+  function handleQueueButtonClick(btn){
+    const key = btn.dataset.queueKey;
+    if(isQueued(key)){
+      removeFromQueue(key);
+    } else {
+      const job = currentJobs.find(j => queueKeyFor(j) === key);
+      if(!job) return;
+      addToQueue(job);
+      setQueueButtonState(btn, true);
+    }
+  }
+
+  function wireQueueList(){
+    document.getElementById('queueList').addEventListener('click', e => {
+      const btn = e.target.closest('.queue-remove-btn');
+      if(!btn) return;
+      removeFromQueue(btn.dataset.removeKey);
+    });
   }
 
   /* ---------- report rendering ---------- */
@@ -661,7 +926,11 @@
       parseNotice.hidden = true;
       introEl.innerHTML = '';
       tableWrap.hidden = true;
+      currentJobs = [];
+      sortState = { col: null, dir: 'asc' };
+      openRanks = new Set();
       reportBody.innerHTML = '';
+      updateSortHeaderUI();
       tailEl.innerHTML = '';
       mdFallback.hidden = false;
       mdFallback.innerHTML = '<p>Couldn’t load this report file.</p>';
@@ -676,14 +945,23 @@
       mdFallback.innerHTML = '';
       introEl.innerHTML = renderMarkdownBlocks(parsed.introMarkdown);
       tableWrap.hidden = false;
-      reportBody.innerHTML = parsed.jobs.map(jobRowHtml).join('');
+      // Fresh report = fresh sort/expand state -- both reset before rendering.
+      currentJobs = parsed.jobs;
+      sortState = { col: null, dir: 'asc' };
+      openRanks = new Set(parsed.jobs.length ? [parsed.jobs[0].rank] : []);
+      renderJobRows();
+      updateSortHeaderUI();
       tailEl.innerHTML = renderMarkdownBlocks(parsed.tailMarkdown);
       updateStatsRow(filename, parsed.jobs);
     } else {
       parseNotice.hidden = false;
       introEl.innerHTML = '';
       tableWrap.hidden = true;
+      currentJobs = [];
+      sortState = { col: null, dir: 'asc' };
+      openRanks = new Set();
       reportBody.innerHTML = '';
+      updateSortHeaderUI();
       tailEl.innerHTML = '';
       mdFallback.hidden = false;
       mdFallback.innerHTML = renderMarkdownBlocks(md);
@@ -951,15 +1229,18 @@
   const profileSection = document.getElementById('profile');
   const boardsSection = document.getElementById('boards');
   const reportsSection = document.getElementById('reports');
+  const queueSection = document.getElementById('queue');
 
-  // Toggles between the normal dashboard (profile/boards/reports) and the first-run
+  // Toggles between the normal dashboard (profile/boards/reports/queue) and the first-run
   // "get started" panel. Both directions are handled so a profile.md that appears after
-  // a refresh brings the dashboard back.
+  // a refresh brings the dashboard back. The queue card is included here too -- on a
+  // fresh clone (no profile.md yet) it must not show an empty queue behind the Welcome panel.
   function showGetStarted(show){
     getStartedSection.hidden = !show;
     profileSection.hidden = show;
     boardsSection.hidden = show;
     reportsSection.hidden = show;
+    queueSection.hidden = show;
   }
 
   // Single place that interprets a loadProfile() outcome: 404 means profile.md hasn't been
@@ -1048,15 +1329,22 @@
     wirePopover();
     wireRubricToggle();
     wireCopyPrompt();
+    wireSortHeaders();
+    wireQueueList();
+    renderQueue();
+    updateQueueBadge();
     refreshBtn.addEventListener('click', handleRefresh);
     reportPicker.addEventListener('change', () => loadReportByName(reportPicker.value));
     reportBody.addEventListener('click', e => {
+      const qBtn = e.target.closest('.queue-btn');
+      if(qBtn){ e.stopPropagation(); handleQueueButtonClick(qBtn); return; }
       if(e.target.closest('a')) return;
       const row = e.target.closest('.data-row');
       if(row) toggleRow(row);
     });
     reportBody.addEventListener('keydown', e => {
       if(e.key !== 'Enter' && e.key !== ' ') return;
+      if(e.target.closest('.queue-btn')) return;
       if(e.target.closest('a')) return;
       const row = e.target.closest('.data-row');
       if(!row) return;
