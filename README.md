@@ -8,6 +8,8 @@ A personal job-search system you run with Claude. It has three parts:
 
 Scans run inside Claude sessions (or on a daily schedule you can ask Claude to set up). The console is the dashboard over the results — your resume, profile, and reports never leave your machine.
 
+**New here? Start with the [User guide](USER-GUIDE.md)** — a step-by-step walkthrough with screenshots, from install to your first scored report.
+
 ## Prerequisites
 
 - **Claude desktop app** with a connected folder (these instructions assume it's called `Claude-Workshop`)
