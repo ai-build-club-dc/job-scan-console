@@ -3,7 +3,7 @@
 honesty_lint.py -- verifies the NUMERIC SUBSET of claims in a generated application
 material against the fact registry (facts.md).
 
-WHAT THIS SCRIPT DOES (spec apply-package-spec.md, section 5.5):
+WHAT THIS SCRIPT DOES (spec docs/apply-package-spec.md, section 5.5):
   Check 2  metrics      every number in a material traces to a facts.md row of kind `metric`.
   Check 3  dates        role date ranges trace to facts.md rows of kind `date`.
   Check 4  credentials  degree/certification mentions trace to facts.md rows of kind `credential`.
@@ -385,19 +385,32 @@ def date_row_matches(row, start_month, start_year, end_open, end_month, end_year
 #      in period form ("B.S.", "M.A.") or when immediately followed by "in"/"of"
 #      ("MS in Computer Science"), which is how résumés actually write the degree
 #      itself as opposed to an abbreviation meaning something else.
+#
+#   LLM (Legum Magister, Master of Laws) belongs in class 2, not class 1, even though
+#   it isn't literally a two-letter initialism. This repo's users are applying to
+#   product/AI roles, where bare "LLM" means Large Language Model essentially always
+#   ("prototyped an LLM-based summarizer over support tickets", "an LLM", "LLM
+#   evaluation") and essentially never means the law degree. Matching it bare (as it
+#   originally lived, in MULTI_LETTER_DEGREE_RE below) threw a false check-4 ERROR on
+#   ordinary AI-work language -- observed twice in a live dry run. The fix is the same
+#   high-collision treatment already applied to MA/MS/BS: only "LL.M." (period form)
+#   or "LLM in/of ..." (how the law degree is actually written on a résumé) counts as
+#   a match; bare "LLM" does not. Do not move it back to the bare-safe class -- the
+#   collision isn't a corner case here, it's the dominant reading.
 # --------------------------------------------------------------------------------------
 
 MULTI_LETTER_DEGREE_RE = re.compile(
-    r"\b(MBA|MFA|BFA|MSW|BSW|MPH|MPA|MEng|BEng|MSc|BSc|LLM|LLB|PhD|EdD)\b"
+    r"\b(MBA|MFA|BFA|MSW|BSW|MPH|MPA|MEng|BEng|MSc|BSc|LLB|PhD|EdD)\b"
 )
 TWO_LETTER_DEGREE_RE = re.compile(
-    r"\b(?:[BM]\.A\.|[BM]\.S\.|J\.D\.|M\.D\.|Ph\.D\.|Ed\.D\.)"  # period form, e.g. "M.S."
+    # period form, e.g. "M.S." (also covers "LL.M.")
+    r"\b(?:[BM]\.A\.|[BM]\.S\.|J\.D\.|M\.D\.|Ph\.D\.|Ed\.D\.|LL\.M\.)"
     # A trailing \b straight after a period form would fail: "." is a non-word
     # character, so the boundary between "." and a following space is not a \b at
     # all, and the match would silently never fire. So the period-form alternative
     # deliberately has no trailing \b -- the leading \b plus the literal dots is
-    # already unambiguous.
-    r"|\b(?:BA|BS|MA|MS|JD|MD)(?=\s+(?:in|of)\b)"  # bare form only before "in"/"of"
+    # already unambiguous. Applies to "LL.M." too, for the same reason.
+    r"|\b(?:BA|BS|MA|MS|JD|MD|LLM)(?=\s+(?:in|of)\b)"  # bare form only before "in"/"of"
 )
 CERT_RE = re.compile(
     r"\b("
@@ -925,7 +938,7 @@ def render_report(registry_path, rows, registry_notes, results):
         "Scope: this script verifies numbers, date ranges, and credentials against "
         "facts.md only. It does not enumerate prose or causal claims (e.g. \"drove "
         "product strategy\") -- that ledger is built separately by the tracer "
-        "subagent, per apply-package-spec.md §5.6. A finding here means a number/date/"
+        "subagent, per docs/apply-package-spec.md §5.6. A finding here means a number/date/"
         "credential could not be traced; a claim not appearing here was never checked "
         "by this script, not certified true by it."
     )
