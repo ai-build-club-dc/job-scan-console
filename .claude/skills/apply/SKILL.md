@@ -6,7 +6,7 @@ description: Build the full apply package (job post, company research, tailored 
 # /apply
 
 Build `applications/<Company>-<Full-Role-Title>/` for a job the user has already chosen from a
-`reports/*.md` scan. Full design rationale: `apply-package-spec.md`. All paths below are relative to
+`reports/*.md` scan. Full design rationale: `docs/apply-package-spec.md`. All paths below are relative to
 the `job-scan-console` folder (the folder containing this skill's `.claude/`), except where noted.
 
 **Nothing is created until the user approves the manifest in step 3.** Not a folder, not one file.
@@ -17,12 +17,17 @@ Read every file in `reports/`, not just the newest — the console lets the user
 and they may be acting on something from last week.
 
 - **`/apply <text>`** — match `<text>` against company names (and role title, if given) across all
-  report entries, case-insensitive substring match.
+  report entries, case-insensitive substring match. A bare string that isn't cleanly one or the other
+  (`/apply Capital One Shopping` could be a company or a product-line role name) is matched jointly
+  against **both** the company name and the role title for every entry — a hit on either field counts
+  as a match, so a string that only names the product line still resolves against the listing whose
+  title carries it.
   - **Exactly one match:** proceed with it.
   - **Zero matches:** say so, ask for the exact company/role, or offer the numbered list below.
   - **More than one match** — same company in two different reports, or twice in one report (a
     reposting, or two roles at the same company) — **ask**. Show each candidate with its report
-    filename, role title, and fit score, and wait for the user to pick. Never guess between them.
+    filename, role title, and fit score, and wait for the user to pick. Accept a number, a name, or
+    "both"/"all" if they want every candidate built. Never guess between them.
 - **`/apply` with no argument** — print a numbered list of every entry in the *newest* report only
   (company, role, fit score) and ask which one(s). Do not search older reports for this case; that's
   what naming a company is for.
@@ -98,27 +103,39 @@ Print, for every resolved job, in one message:
    → applications/Acme-Corp-Senior-Product-Manager/
    Files: job-post.md, company-context.md, tailored-resume.md, lint-report.md,
           gap-analysis.md, notes.md
-   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted)
+   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted) + 3 tracer subagents
 
 2. Globex — Staff Product Manager            Fit 7/10   (reports/2026-08-01-0900.md)
    → applications/Globex-Staff-Product-Manager/
    Files: job-post.md, company-context.md, tailored-resume.md, lint-report.md,
           gap-analysis.md, notes.md
-   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted)
+   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted) + 3 tracer subagents
 
-Total: 2 jobs, ~10 research fetches, 2 tracer subagents.
+Total: 2 jobs, ~10 research fetches, 6 tracer subagents.
 
 Reply "go" to build all of these, or "go, skip globex" to build a subset.
 ```
 
+For a single resolved job, print just that one numbered entry — same header, folder path, Files
+line, and Research budget line as above — and still close with the `Total:` line and a reply prompt
+scoped to one job, e.g.:
+
+```
+Total: 1 job, ~5 research fetches, 3 tracer subagents.
+
+Reply "go" to build it.
+```
+
+The `Total:` line is never optional, batch or not — see below.
+
 Always include that total line — for a real batch it's the whole point of the gate: a ten-job batch
-is ~50 research fetches and ten subagents under one approval, and the per-job lines shouldn't make the
-user do that arithmetic themselves.
+is ~50 research fetches and thirty tracer subagents under one approval, and the per-job lines
+shouldn't make the user do that arithmetic themselves.
 
 **Wait for one reply.** Nothing downstream — no folder, no file, no fetch — runs before it arrives.
 The reply grammar is `go`, optionally with per-job `skip <name>` clauses in the same message. There
-are no depth tiers to override (every job gets the full package — see the spec §4); this gate is the
-only cost control there is.
+are no depth tiers to override (every job gets the full package — see `docs/apply-package-spec.md`
+§4); this gate is the only cost control there is.
 
 ## 4. Build, per approved job
 
@@ -132,6 +149,22 @@ machinery talking to itself.
 proper-cased, spaces and punctuation replaced with single hyphens (e.g. `Humana-Lead-AI-Technical-Product-Manager`).
 No role-type abbreviation — this repo has no controlled vocabulary of role tags, and inventing one
 wouldn't generalize past product-management careers.
+
+**Punctuation.** Replace every run of whitespace or punctuation (commas, slashes, parentheses,
+ampersands, existing hyphens included) with a single hyphen, then collapse any resulting run of
+multiple hyphens into one and strip leading/trailing hyphens. Parenthesized qualifiers keep their
+contents, just unwrapped: `(Remote-Eligible)` becomes part of the hyphen run, not a dropped chunk.
+
+**De-dup.** Branded product lines (Capital One Shopping, Capital One Travel, Google AI, …) put the
+company name a second time *inside the posted role title* — applied literally, the rule above
+produces `Capital-One-Product-Manager-Capital-One-Shopping-Remote-Eligible`, the company name twice.
+If the company name already appears in the role title, don't repeat it: slugify the title first,
+remove the chunk matching the company's own slug from within it (case-insensitive), then prefix with
+the company once. Worked example — company `Capital One`, title `Product Manager, Capital One
+Shopping (Remote-Eligible)`: title alone slugifies to
+`Product-Manager-Capital-One-Shopping-Remote-Eligible`; strip the embedded `Capital-One` chunk to get
+`Product-Manager-Shopping-Remote-Eligible`; prefix with the company once for
+`Capital-One-Product-Manager-Shopping-Remote-Eligible`.
 
 **Collision rule.** If `applications/<slug>/` already exists:
 - If it has an `INCOMPLETE` marker at the top of its `notes.md`, **resume into it** — see below —
@@ -155,15 +188,31 @@ rather than restarting from `job-post.md`.
 ### 4.1 `job-post.md`
 
 Source, in this order, and stop at the first that works:
-1. Re-call `get_job_details` (load it via `ToolSearch`, query "Indeed job search", if not already
-   loaded) on the job's ID. The report entry doesn't carry an explicit job-ID field, so pull it from
-   the `**Apply:**` URL in the resolved report entry (Indeed apply/view links carry the listing ID in
-   the URL, e.g. a `jk=` parameter).
-2. If that fails, `WebFetch` the `**Apply:**` link directly.
-3. If that also fails (login wall, dead link, blocked fetch), fall back to the report entry alone —
-   title, company, location, salary, the "Why" line — and mark the file
-   `provenance: degraded (summary only)`. **Never** invent JD content to fill the gap, and never let
-   a dead link stall the whole job — degrade visibly and move on.
+1. Resolve the job ID. The report entry doesn't carry an explicit job-ID field, and in practice the
+   `**Apply:**` URL is a shortlink (`https://to.indeed.com/<token>`) with no ID visible in it at all
+   — the ID only appears after the shortlink is resolved (follow the redirect), which typically lands
+   on an `indeed.com/rc/clk` or `/uie/clk` tracking URL carrying the listing ID as a `jk=` parameter.
+   Resolve first, then extract `jk=` from the *resolved* URL, not the shortlink.
+2. Call `get_job_details` (load it via `ToolSearch`, query "Indeed job search", if not already loaded)
+   on that ID. Treat an error here as inconclusive, not proof the ID was wrong — this call has been
+   observed to error on IDs that are nonetheless valid, so an error means "move to the next source,"
+   not "give up on this job."
+3. If that didn't produce a JD, `WebFetch` the resolved tracking URL directly (not the original
+   shortlink). That URL can carry an encoded query string thousands of characters long — long enough
+   that `WebFetch` sometimes refuses it outright with "Invalid URL." If that happens, trim the URL
+   down to the bare `jk=` parameter (e.g. `https://www.indeed.com/viewjob?jk=<id>`) and retry once
+   before treating this path as failed.
+4. If the JD still hasn't been found, search for the posting on the employer's own careers site —
+   `WebSearch` company name + role title (e.g. `"Capital One" "Product Manager, Capital One Shopping"
+   careers`). Employer career pages are commonly indexed and often carry the full JD, exact
+   requirements, and exact salary bands where the Indeed listing had already thinned to a summary.
+   If a matching posting turns up, `WebFetch` it and use its content in place of the Indeed JD —
+   record the provenance line as `provenance: careers site (<url>)` rather than crediting the Apply
+   link, since that's not actually where the content came from.
+5. If that also fails (login wall, dead link, blocked fetch, nothing found on the careers site),
+   fall back to the report entry alone — title, company, location, salary, the "Why" line — and mark
+   the file `provenance: degraded (summary only)`. **Never** invent JD content to fill the gap, and
+   never let a dead link stall the whole job — degrade visibly and move on.
 
 Write the JD (or the degraded summary) plus a provenance line back to the source report and entry
 number. This fetch does not count against the company-research budget below.
@@ -189,6 +238,15 @@ with generic filler. "Why this fits you" may draw on facts already gathered in t
 sections plus a comparison against `facts.md`/`profile.md`; it still needs a fetched-this-run URL
 behind any *new* factual claim about the company that appears only in that section.
 
+**This covers URLs that arrive inside a tool's response, not just ones found via `WebSearch`.**
+`get_company_data` and similar connector calls return structured data that often includes a URL field
+(e.g. a company's Indeed profile link) — that URL reads as verified because it came back from a real
+tool call, but the tool call didn't *fetch* the page at that URL, it returned a record that happens to
+contain a link. Citing it as a source would be the same fabrication this rule exists to prevent, just
+laundered through a connector instead of invented outright. If a fact came from a connector response,
+credit the tool (e.g. "per Indeed's company data") rather than manufacturing a citation for a URL
+nothing in this run actually fetched.
+
 ### 4.3 `tailored-resume.md`
 
 Free-text tailoring of `resume.md`'s content against `facts.md`, aimed at this specific JD (from
@@ -209,12 +267,21 @@ This is the honesty check, and it has two independent parts that both have to la
 credentials in them — it cannot reliably tell "drove product strategy for the platform org" apart
 from an invented sentence that merely sounds like the rest of the résumé. So a model has to do the
 enumeration, and it has to do it **without the JD in front of it** — otherwise it can rationalize an
-invented claim as "well, the posting did ask for that." Spawn exactly **one** subagent (via the Agent
-tool) that receives **only** the contents of `tailored-resume.md` and `facts.md` — not the job post,
-not `company-context.md`, not this conversation. Paste both files' full contents directly into the
-prompt (don't just hand it file paths — a subagent with tool access could go read the JD anyway, and
-withholding it is the entire mechanism). Use this prompt verbatim, with the two marked insertions
-filled in:
+invented claim as "well, the posting did ask for that."
+
+**Spawn three independent subagents, not one.** The identical verbatim prompt below, run twice over
+near-identical résumé text during this skill's own dry runs, disagreed — 29 claims/7 NO SOURCE versus
+22 claims/5 NO SOURCE — and two verdicts flipped in *opposite* directions on claims neither run had
+touched. One flip was severe: "end-to-end ownership of a tool build," a claim the registry backs only
+as discrete task fragments — exactly the re-crediting the generation-time rule in 4.3 forbids — was
+NO SOURCE on one pass and TRACED, i.e. certified, on the other. A single tracer pass is a sample of a
+model's judgment, not a verdict, and that specific escalation was observed slipping through a lone
+pass. So: spawn three subagents (via the Agent tool), each receiving **only** the contents of
+`tailored-resume.md` and `facts.md` — not the job post, not `company-context.md`, not this
+conversation, and not each other's output. Paste both files' full contents directly into each
+prompt (don't just hand them file paths — a subagent with tool access could go read the JD anyway,
+and withholding it is the entire mechanism). All three get the same prompt verbatim, with the two
+marked insertions filled in:
 
 ```
 You are a claims tracer. You will be given two documents: a tailored résumé and a facts registry.
@@ -251,6 +318,15 @@ it with one summary line: total claims, and how many are NO SOURCE.
 {{FACTS_MD_CONTENTS}}
 ```
 
+**Combine the three runs by union, not majority.** A claim marked NO SOURCE by *any* of the three
+runs is NO SOURCE in the ledger — do not average, and do not require 2-of-3 agreement. The risk this
+guards against is a false TRACED slipping through, not a false NO SOURCE; a claim that's actually
+fine costs the user a few seconds of re-reading, but a re-credited claim that ships costs them in an
+interview. In the ledger, note per claim which of the three runs flagged it (e.g. "NO SOURCE — flagged
+by 2/3 runs") — a claim only one run caught is real signal, not noise, but it's visibly weaker
+evidence than one all three runs agreed on, and the user should be able to see that difference rather
+than have it collapsed into a single flat verdict.
+
 **The script (verifies the numeric subset).** The tracer enumerates; `honesty_lint.py` then
 deterministically checks the parts of that enumeration where a script beats judgment — the numbers,
 dates, and credentials actually printed in the résumé, against the registry. It does not enumerate
@@ -280,12 +356,28 @@ Both halves land in the file; neither is a chat-only finding. A finding that onl
 evaporates when the session ends, while `lint-report.md` persists as the record the user actually
 comes back to and trusts — so anything either check produced has to be in the file, not just
 summarized to them in the moment. This isn't the file's final form: `gap-analysis.md`'s
-student-claim section is also honesty-checked (see §2 of the spec's file table), but it doesn't exist
-yet at this point in the build order — 4.5 appends its findings to this same file below.
+student-claim section is also honesty-checked (see `docs/apply-package-spec.md` §2's file table), but
+it doesn't exist yet at this point in the build order — 4.5 appends its findings to this same file
+below.
 
 ### 4.5 `gap-analysis.md`
 
-Three sections, in this order:
+Three sections, in this order. **Each one must be rendered as a `##` ATX heading, with exactly this
+text** — not a numbered list item, not bold prose standing alone, not a `###`:
+
+```
+## What this job asks for
+## What your record evidences
+## How to close the gaps, and can you defend them?
+```
+
+This isn't a style preference. `honesty_lint.py`'s `--section` flag — used two steps below, on this
+same file — matches only ATX headings (`^#{1,6}\s`), and if the heading text it's told to find isn't
+present as one, it does **not** fall back to scanning the whole file. It just prints a "not found"
+notice and moves on. Write section 2 as a list item instead of a heading (`2. **What your record
+evidences**`) and the flag matches nothing, the lint call still exits 0, and the gap-analysis half of
+the honesty check has silently done nothing — no error loud enough to notice after the fact. Get the
+heading level and text exactly right the first time.
 
 1. **What this job asks for** — the JD's requirements, quoted from `job-post.md`. Not lint-checked —
    these are the JD's words, not the user's claims.
@@ -298,6 +390,12 @@ Three sections, in this order:
    most. Measuring against the registry instead means that same fabricated bridge shows up as a
    visible contradiction: the résumé claims it, the gap analysis says the registry doesn't back it.
    This section's claims are in lint scope — see the step below, right after this file is written.
+   **Keep any summary tally out of this section.** A line like "Tally: 1 meets, 5 partially evidence,
+   7 no evidence" is meta-commentary about the analysis, not a claim about the user — but it lives
+   inside the lint-scoped section, the script reads "1", "5", and "7" as unbacked numeric claims, and
+   throws a zero-source ERROR on each. A tally is genuinely useful to a reader; it just belongs
+   **outside** the lint-scoped section — fold it into section 3 below, or place it above section 1's
+   heading — because only the numbers inside section 2 get checked against the fact registry.
 3. **How to close the gaps, and can you defend them?** — concrete, honest next actions for the real
    gaps, closing with: *"You will be asked to back these claims in an interview. Can you, out loud,
    right now?"* This is the point where an invisible risk becomes a rehearsal task — nothing in this
@@ -306,10 +404,10 @@ Three sections, in this order:
    fail an interview). The user's judgment is the last gate, and this line is where the skill has to
    say so plainly rather than let a clean lint read as "verified."
 
-**Lint `gap-analysis.md` and fold it into `lint-report.md`.** The file table in the spec marks
-`gap-analysis.md` honesty-checked (student-claim section only), but the generation order puts
-"tracer + lint" before this file is written — so the check on *this* file's claims has to happen
-here, immediately after it's written, not back in 4.4:
+**Lint `gap-analysis.md` and fold it into `lint-report.md`.** The file table in
+`docs/apply-package-spec.md` §2 marks `gap-analysis.md` honesty-checked (student-claim section only),
+but the generation order puts "tracer + lint" before this file is written — so the check on *this*
+file's claims has to happen here, immediately after it's written, not back in 4.4:
 
 ```
 python3 scripts/honesty_lint.py applications/<slug>/gap-analysis.md --registry facts.md --section "What your record evidences"
@@ -323,8 +421,8 @@ Append the captured stdout to the `lint-report.md` written in 4.4 as a new secti
 ```
 
 Only "what your record evidences" is in scope here — the script itself is expected to skip the
-JD-derived "what this job asks for" section per §5.5 of the spec. After this, `lint-report.md` covers
-both claim-bearing files in the package, matching the file table.
+JD-derived "what this job asks for" section per `docs/apply-package-spec.md` §5.5. After this,
+`lint-report.md` covers both claim-bearing files in the package, matching the file table.
 
 ### 4.6 Seed `notes.md`
 
@@ -358,7 +456,7 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
 1. Resolve the folder against `applications/*` (by company/role match, same ask-on-ambiguity rule as
    step 1) — **not** against `reports/`, since this operates on a package that already exists.
 2. Re-run the tracer (4.4) on the **current** `tailored-resume.md` + `facts.md` — same prompt, same
-   isolation, fresh subagent.
+   isolation, three fresh subagents, same union-of-NO-SOURCE combination.
 3. Re-run the script over whichever of the two claim-bearing materials actually exist in the folder —
    normally both, but an `INCOMPLETE` folder or one built before this skill folded gap-analysis
    findings into 4.5 may only have `tailored-resume.md`. Pass only what's present; the script exits
@@ -373,12 +471,17 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
    would ERROR on every quoted figure). Run whichever materials exist; skip a file that's absent.
    ```
    (`gap-analysis.md`'s "what this job asks for" section is JD-derived and stays out of lint scope;
-   only "what your record evidences" is in scope, matching §5.5 of the spec.)
+   only "what your record evidences" is in scope, matching `docs/apply-package-spec.md` §5.5.)
 4. Overwrite `lint-report.md` with the fresh ledger + findings, same structure as 4.4. This is **not**
    a rebuild — it doesn't touch any other file in the folder, and it never triggers the `-2` collision
    suffix.
 5. Report the new ERROR/WARN counts and the ledger's NO SOURCE count, and note anything that flipped
-   since the last lint (newly traced, newly untraceable).
+   since the last lint (newly traced, newly untraceable). **A flip doesn't necessarily mean the
+   document changed** — the tracer is three model passes, not a deterministic check, so a claim can
+   flip between two lint runs over *identical* `tailored-resume.md` content purely from run-to-run
+   variance. Report a flip either way, but don't imply the file changed if it didn't, and treat a
+   claim that flips between runs as deserving **more** scrutiny than one that traces the same way
+   every time — instability in the verdict is itself signal, not noise to explain away.
 
 ## 6. Wrap-up
 
@@ -392,9 +495,13 @@ After a build (or a batch), report per job:
 
 Then say, plainly, once per session rather than per job: **passing the lint and the tracer is not the
 same as a claim being true** — both check traceability to `facts.md`, not whether the underlying
-fact is accurately represented or whether the user can defend it. Encourage them to read
-`lint-report.md` and `gap-analysis.md` and cut anything they can't say out loud in an interview before
-they send the package.
+fact is accurately represented or whether the user can defend it. Add, in the same breath: **the
+claims ledger is a sample of a model's judgment, not a verdict** — three independent tracer passes
+were combined precisely because a single pass was observed to certify a re-credited claim
+("end-to-end ownership" of work the registry backs only as fragments) that a second pass on the same
+material caught. Agreement across all three runs is stronger evidence than a flag from just one, but
+none of it is proof. Encourage them to read `lint-report.md` and `gap-analysis.md` and cut anything
+they can't say out loud in an interview before they send the package.
 
 ## Out of scope
 
