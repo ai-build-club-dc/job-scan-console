@@ -135,7 +135,12 @@ shouldn't make the user do that arithmetic themselves.
 **Wait for one reply.** Nothing downstream — no folder, no file, no fetch — runs before it arrives.
 The reply grammar is `go`, optionally with per-job `skip <name>` clauses in the same message. There
 are no depth tiers to override (every job gets the full package — see `docs/apply-package-spec.md`
-§4); this gate is the only cost control there is.
+§4); this gate is the only cost control there is. **A reply already given counts.** If the message
+that invoked `/apply` already carried an explicit `go` alongside the job names (e.g. `/apply Acme,
+go`), that reply already exists — print the manifest anyway, for the record, then proceed without
+asking a second time. Short of an approval actually present in that invoking message, nothing here
+changes: an agent must never read approval into an ambiguous message, prior context, or its own sense
+that the user is probably fine with it — only a reply the user actually gave counts.
 
 ## 4. Build, per approved job
 
@@ -196,12 +201,15 @@ Source, in this order, and stop at the first that works:
 2. Call `get_job_details` (load it via `ToolSearch`, query "Indeed job search", if not already loaded)
    on that ID. Treat an error here as inconclusive, not proof the ID was wrong — this call has been
    observed to error on IDs that are nonetheless valid, so an error means "move to the next source,"
-   not "give up on this job."
+   not "give up on this job." If it returns a JD, record the provenance line as `provenance: Indeed
+   (get_job_details)`.
 3. If that didn't produce a JD, `WebFetch` the resolved tracking URL directly (not the original
    shortlink). That URL can carry an encoded query string thousands of characters long — long enough
    that `WebFetch` sometimes refuses it outright with "Invalid URL." If that happens, trim the URL
    down to the bare `jk=` parameter (e.g. `https://www.indeed.com/viewjob?jk=<id>`) and retry once
-   before treating this path as failed.
+   before treating this path as failed. If this produces a JD, record the provenance line as
+   `provenance: Indeed (<url>)` — the resolved or trimmed tracking URL actually fetched, not the
+   original shortlink.
 4. If the JD still hasn't been found, search for the posting on the employer's own careers site —
    `WebSearch` company name + role title (e.g. `"Capital One" "Product Manager, Capital One Shopping"
    careers`). Employer career pages are commonly indexed and often carry the full JD, exact
@@ -214,8 +222,11 @@ Source, in this order, and stop at the first that works:
    the file `provenance: degraded (summary only)`. **Never** invent JD content to fill the gap, and
    never let a dead link stall the whole job — degrade visibly and move on.
 
-Write the JD (or the degraded summary) plus a provenance line back to the source report and entry
-number. This fetch does not count against the company-research budget below.
+Write the JD (or the degraded summary) into `job-post.md`, along with two things: a provenance line in
+the format above for whichever source actually produced it, and a separate line citing the source
+report and entry number this job was resolved from in step 1. Both lines live inside `job-post.md`
+itself; nothing in this step edits `reports/*.md`, which stays exactly as `/scan-jobs` wrote it. This
+fetch does not count against the company-research budget below.
 
 ### 4.2 `company-context.md`
 
@@ -346,7 +357,11 @@ touched. Structure:
 # Lint report — <Company> / <Role>
 
 ## Claims ledger (tracer)
-<the tracer subagent's table + summary line, verbatim>
+<the merged ledger: one row per claim, union-combined across the three runs, each NO SOURCE row
+annotated `flagged by N/3 runs` (per 4.4 above) and citing the registry row(s), plus a summary line>
+
+### Per-run tracer tables
+<all three subagents' tables + summary lines, verbatim, one after another>
 
 ## Lint findings — tailored-resume.md
 <the script's captured stdout, verbatim>
@@ -355,7 +370,12 @@ touched. Structure:
 Both halves land in the file; neither is a chat-only finding. A finding that only appears in chat
 evaporates when the session ends, while `lint-report.md` persists as the record the user actually
 comes back to and trusts — so anything either check produced has to be in the file, not just
-summarized to them in the moment. This isn't the file's final form: `gap-analysis.md`'s
+summarized to them in the moment. That includes the disagreement between runs, not just the merged
+verdict: a claim one run traced and another flagged NO SOURCE is the highest-value thing this
+three-run design produces — the "end-to-end ownership" flip described above is exactly that shape —
+and a merged ledger alone hides it behind a single flat annotation. The merged ledger is what a
+reader wants first; the per-run tables underneath are what preserve the raw disagreement once the
+session that ran the three subagents has ended. This isn't the file's final form: `gap-analysis.md`'s
 student-claim section is also honesty-checked (see `docs/apply-package-spec.md` §2's file table), but
 it doesn't exist yet at this point in the build order — 4.5 appends its findings to this same file
 below.
