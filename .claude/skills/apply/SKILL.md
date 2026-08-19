@@ -103,15 +103,15 @@ Print, for every resolved job, in one message:
    → applications/Acme-Corp-Senior-Product-Manager/
    Files: job-post.md, company-context.md, tailored-resume.md, lint-report.md,
           gap-analysis.md, notes.md
-   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted) + 3 tracer subagents
+   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted) + 1 tracer subagent
 
 2. Globex — Staff Product Manager            Fit 7/10   (reports/2026-08-01-0900.md)
    → applications/Globex-Staff-Product-Manager/
    Files: job-post.md, company-context.md, tailored-resume.md, lint-report.md,
           gap-analysis.md, notes.md
-   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted) + 3 tracer subagents
+   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted) + 1 tracer subagent
 
-Total: 2 jobs, ~10 research fetches, 6 tracer subagents.
+Total: 2 jobs, ~10 research fetches, 2 tracer subagents.
 
 Reply "go" to build all of these, or "go, skip globex" to build a subset.
 ```
@@ -121,7 +121,7 @@ line, and Research budget line as above — and still close with the `Total:` li
 scoped to one job, e.g.:
 
 ```
-Total: 1 job, ~5 research fetches, 3 tracer subagents.
+Total: 1 job, ~5 research fetches, 1 tracer subagent.
 
 Reply "go" to build it.
 ```
@@ -129,7 +129,7 @@ Reply "go" to build it.
 The `Total:` line is never optional, batch or not — see below.
 
 Always include that total line — for a real batch it's the whole point of the gate: a ten-job batch
-is ~50 research fetches and thirty tracer subagents under one approval, and the per-job lines
+is ~50 research fetches and ten tracer subagents under one approval, and the per-job lines
 shouldn't make the user do that arithmetic themselves.
 
 **Wait for one reply.** Nothing downstream — no folder, no file, no fetch — runs before it arrives.
@@ -280,19 +280,25 @@ from an invented sentence that merely sounds like the rest of the résumé. So a
 enumeration, and it has to do it **without the JD in front of it** — otherwise it can rationalize an
 invented claim as "well, the posting did ask for that."
 
-**Spawn three independent subagents, not one.** The identical verbatim prompt below, run twice over
-near-identical résumé text during this skill's own dry runs, disagreed — 29 claims/7 NO SOURCE versus
-22 claims/5 NO SOURCE — and two verdicts flipped in *opposite* directions on claims neither run had
-touched. One flip was severe: "end-to-end ownership of a tool build," a claim the registry backs only
-as discrete task fragments — exactly the re-crediting the generation-time rule in 4.3 forbids — was
-NO SOURCE on one pass and TRACED, i.e. certified, on the other. A single tracer pass is a sample of a
-model's judgment, not a verdict, and that specific escalation was observed slipping through a lone
-pass. So: spawn three subagents (via the Agent tool), each receiving **only** the contents of
+**Spawn one subagent.** The identical verbatim prompt below, run twice over near-identical résumé
+text during this skill's own dry runs, disagreed — 29 claims/7 NO SOURCE versus 22 claims/5 NO
+SOURCE — and two verdicts flipped in *opposite* directions on claims neither run had touched. One
+flip was severe: "end-to-end ownership of a tool build," a claim the registry backs only as discrete
+task fragments — exactly the re-crediting the generation-time rule in 4.3 forbids — was NO SOURCE on
+one pass and TRACED, i.e. certified, on the other. A later run saw the same instability on "a track
+record of turning an operational need into a shipped, adopted tool": NO SOURCE on one pass, TRACED on
+another, split across a third. A single tracer pass is a sample of a model's judgment, not a verdict,
+and both of those escalations were observed slipping through a lone pass — that risk doesn't go away
+just because this skill now runs only one pass; it's the reason the ledger has to be read as a sample,
+never a certification (§6 says this to the user directly). Spawning three subagents and combining
+their NO SOURCE sets by union was tried and reverted: subagent spawn overhead runs roughly 50k tokens
+each regardless of payload size, so three tracers cost ~150k tokens per job, and a ten-job batch
+carried ~1M tokens of overhead for a check the user was already going to make by reading the tailored
+résumé. So: spawn one subagent (via the Agent tool), giving it **only** the contents of
 `tailored-resume.md` and `facts.md` — not the job post, not `company-context.md`, not this
-conversation, and not each other's output. Paste both files' full contents directly into each
-prompt (don't just hand them file paths — a subagent with tool access could go read the JD anyway,
-and withholding it is the entire mechanism). All three get the same prompt verbatim, with the two
-marked insertions filled in:
+conversation. Paste both files' full contents directly into the prompt (don't just hand it file
+paths — a subagent with tool access could go read the JD anyway, and withholding it is the entire
+mechanism). Fill in the two marked insertions verbatim:
 
 ```
 You are a claims tracer. You will be given two documents: a tailored résumé and a facts registry.
@@ -329,15 +335,6 @@ it with one summary line: total claims, and how many are NO SOURCE.
 {{FACTS_MD_CONTENTS}}
 ```
 
-**Combine the three runs by union, not majority.** A claim marked NO SOURCE by *any* of the three
-runs is NO SOURCE in the ledger — do not average, and do not require 2-of-3 agreement. The risk this
-guards against is a false TRACED slipping through, not a false NO SOURCE; a claim that's actually
-fine costs the user a few seconds of re-reading, but a re-credited claim that ships costs them in an
-interview. In the ledger, note per claim which of the three runs flagged it (e.g. "NO SOURCE — flagged
-by 2/3 runs") — a claim only one run caught is real signal, not noise, but it's visibly weaker
-evidence than one all three runs agreed on, and the user should be able to see that difference rather
-than have it collapsed into a single flat verdict.
-
 **The script (verifies the numeric subset).** The tracer enumerates; `honesty_lint.py` then
 deterministically checks the parts of that enumeration where a script beats judgment — the numbers,
 dates, and credentials actually printed in the résumé, against the registry. It does not enumerate
@@ -357,11 +354,7 @@ touched. Structure:
 # Lint report — <Company> / <Role>
 
 ## Claims ledger (tracer)
-<the merged ledger: one row per claim, union-combined across the three runs, each NO SOURCE row
-annotated `flagged by N/3 runs` (per 4.4 above) and citing the registry row(s), plus a summary line>
-
-### Per-run tracer tables
-<all three subagents' tables + summary lines, verbatim, one after another>
+<the tracer's table, citing the registry row(s) per claim, plus its summary line, pasted verbatim>
 
 ## Lint findings — tailored-resume.md
 <the script's captured stdout, verbatim>
@@ -370,12 +363,11 @@ annotated `flagged by N/3 runs` (per 4.4 above) and citing the registry row(s), 
 Both halves land in the file; neither is a chat-only finding. A finding that only appears in chat
 evaporates when the session ends, while `lint-report.md` persists as the record the user actually
 comes back to and trusts — so anything either check produced has to be in the file, not just
-summarized to them in the moment. That includes the disagreement between runs, not just the merged
-verdict: a claim one run traced and another flagged NO SOURCE is the highest-value thing this
-three-run design produces — the "end-to-end ownership" flip described above is exactly that shape —
-and a merged ledger alone hides it behind a single flat annotation. The merged ledger is what a
-reader wants first; the per-run tables underneath are what preserve the raw disagreement once the
-session that ran the three subagents has ended. This isn't the file's final form: `gap-analysis.md`'s
+summarized to them in the moment. With a single tracer pass, that file is the only sample of the
+model's judgment the user gets — there's no second run's table on disk to check it against, the way
+there was when this skill spawned three. That's exactly why §6's wrap-up leans on telling the user to
+read this file line by line rather than trust a clean count in it. This isn't the file's final form:
+`gap-analysis.md`'s
 student-claim section is also honesty-checked (see `docs/apply-package-spec.md` §2's file table), but
 it doesn't exist yet at this point in the build order — 4.5 appends its findings to this same file
 below.
@@ -476,7 +468,7 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
 1. Resolve the folder against `applications/*` (by company/role match, same ask-on-ambiguity rule as
    step 1) — **not** against `reports/`, since this operates on a package that already exists.
 2. Re-run the tracer (4.4) on the **current** `tailored-resume.md` + `facts.md` — same prompt, same
-   isolation, three fresh subagents, same union-of-NO-SOURCE combination.
+   isolation, one fresh subagent.
 3. Re-run the script over whichever of the two claim-bearing materials actually exist in the folder —
    normally both, but an `INCOMPLETE` folder or one built before this skill folded gap-analysis
    findings into 4.5 may only have `tailored-resume.md`. Pass only what's present; the script exits
@@ -497,11 +489,13 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
    suffix.
 5. Report the new ERROR/WARN counts and the ledger's NO SOURCE count, and note anything that flipped
    since the last lint (newly traced, newly untraceable). **A flip doesn't necessarily mean the
-   document changed** — the tracer is three model passes, not a deterministic check, so a claim can
+   document changed** — the tracer is a single model pass, not a deterministic check, so a claim can
    flip between two lint runs over *identical* `tailored-resume.md` content purely from run-to-run
-   variance. Report a flip either way, but don't imply the file changed if it didn't, and treat a
-   claim that flips between runs as deserving **more** scrutiny than one that traces the same way
-   every time — instability in the verdict is itself signal, not noise to explain away.
+   variance. That's truer now than when this skill ran three tracers per lint and combined them by
+   union — a single pass has nothing to average against, so its nondeterminism shows up directly in
+   what the user sees. Report a flip either way, but don't imply the file changed if it didn't, and
+   treat a claim that flips between runs as deserving **more** scrutiny than one that traces the same
+   way every time — instability in the verdict is itself signal, not noise to explain away.
 
 ## 6. Wrap-up
 
@@ -516,12 +510,17 @@ After a build (or a batch), report per job:
 Then say, plainly, once per session rather than per job: **passing the lint and the tracer is not the
 same as a claim being true** — both check traceability to `facts.md`, not whether the underlying
 fact is accurately represented or whether the user can defend it. Add, in the same breath: **the
-claims ledger is a sample of a model's judgment, not a verdict** — three independent tracer passes
-were combined precisely because a single pass was observed to certify a re-credited claim
-("end-to-end ownership" of work the registry backs only as fragments) that a second pass on the same
-material caught. Agreement across all three runs is stronger evidence than a flag from just one, but
-none of it is proof. Encourage them to read `lint-report.md` and `gap-analysis.md` and cut anything
-they can't say out loud in an interview before they send the package.
+claims ledger is one sample of a model's judgment, not a verdict** — a single tracer pass has been
+observed certifying a re-credited claim ("end-to-end ownership" of work the registry backs only as
+fragments) that a second pass on the same material caught as NO SOURCE, and a later run saw the same
+instability split three ways across three passes on a different claim. This skill used to run three
+tracers per job and combine their NO SOURCE sets by union specifically to catch that instability
+before the user ever saw it; that costs roughly 50k tokens per subagent spawn — ~150k per job, ~1M
+across a ten-job batch — and it's been reverted to a single pass on the reasoning that the user reads
+the tailored résumé line by line anyway. That reasoning only holds if the reading actually happens:
+with one pass, the user's own review is the mitigation, not a backstop behind one. Encourage them to
+read `lint-report.md` and `gap-analysis.md` line by line, not skim the counts, and cut anything they
+can't say out loud in an interview before they send the package.
 
 ## Out of scope
 

@@ -266,8 +266,12 @@ turned up five more gaps. None of the mechanisms above catch these:
    Critically, `"end-to-end ownership of a tool build"` — where the registry backed only discrete task
    fragments, i.e. exactly the re-crediting the generation-time hard rule above forbids — was
    **TRACED on one run and NO SOURCE on the other**. A single pass is a sample of a model's judgment,
-   not a verdict. The skill is being changed to run three tracers and take the union of their
-   NO SOURCE sets, which reduces but does not eliminate this.
+   not a verdict. Running three tracers per job and taking the union of their NO SOURCE sets was built
+   and then reverted: subagent spawn overhead runs roughly 50k tokens each regardless of payload size,
+   so three tracers cost ~150k tokens per job and ~1M tokens of overhead across a ten-job batch. The
+   decision, made knowingly rather than missed: one tracer pass per job, with the residual
+   nondeterminism risk transferred to the student's manual review of the tailored résumé rather than
+   caught by redundant passes. See the skill's §6 wrap-up for how that's surfaced to the student.
 2. **A false ERROR costs trust.** The lint flagged "LLM" (in "an LLM-based summarizer") as an
    unbacked *credential*, because `LLM` is also the Master of Laws degree. Fixed, but the general risk
    stands: this report's authority depends on its findings being real, and a checker that cries wolf
