@@ -45,7 +45,7 @@ Per-user, created during onboarding (see `CLAUDE.md`) from the user's resume plu
 
 - A project skill at `.claude/skills/scan-jobs/SKILL.md` — available automatically in Claude sessions opened in this folder, invoked as `/scan-jobs`.
 - Accepts an optional batch of pasted postings/links alongside the automatic Indeed scan.
-- The console (`console/index.html`) is a single-file static dashboard over `profile.md` + `reports/` — serve the repo root (`python3 -m http.server 8642`) and open `/console/`.
+- The console (`console/index.html`) is a single-file static dashboard over `profile.md` + `reports/` — serve the repo root (`python3 -m http.server 8642 --bind 127.0.0.1`) and open `/console/`.
 
 ## Implementation defaults (low-stakes, reversible)
 

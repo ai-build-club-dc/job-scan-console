@@ -331,7 +331,7 @@
     <div class="content">
       <div class="fatal-banner" id="fatalBanner" hidden>
         <h3>Can&rsquo;t load data</h3>
-        <p>This page needs to be served over HTTP, not opened as a file. In a terminal, from the project folder: <code>python3 -m http.server 8642</code> &mdash; then open <code>http://localhost:8642/console/</code>. Opening this file directly (<code>file://</code>) can&rsquo;t fetch local reports or the profile.</p>
+        <p>This page needs to be served over HTTP, not opened as a file. In a terminal, from the project folder: <code>python3 -m http.server 8642 --bind 127.0.0.1</code> &mdash; then open <code>http://localhost:8642/console/</code>. Opening this file directly (<code>file://</code>) can&rsquo;t fetch local reports or the profile.</p>
       </div>
 
       <section id="getStarted" class="card getstarted-card" hidden>
