@@ -45,6 +45,8 @@ Claude takes it from there. Here's what happens next:
 
 The whole process takes about fifteen minutes, split mostly between building your fact registry in step 3 and the interview in step 4.
 
+> **In a hurry?** Step 3 (the fact registry) is the longest part of onboarding, and you don't have to do it now — just tell Claude "I'll do this later" when it gets there. You can still scan for jobs and build application packages without it. What you don't get until it's done: a *verified* tailored résumé (until then it's marked UNVERIFIED), the honesty check (`lint-report.md`), and the gap analysis. Finish it any time by telling Claude: *"Finish my registry."*
+
 ### Manual alternative
 
 If you'd rather not have Claude download anything itself:

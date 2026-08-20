@@ -83,6 +83,8 @@ Note "posted date unknown" inline for any pasted job that couldn't be freshness-
 
 After writing the file, give a short chat summary: how many results, the top 2–3 by score, and the report's file path. Don't dump the full report into chat — the file is the artifact.
 
+If `facts.md` doesn't exist at the repo root, append this one line to the summary: *"Your fact registry is still pending — finishing it unlocks a verified résumé, the honesty check, and the gap analysis. Say 'finish my registry' any time."* This scan itself isn't affected either way — `/scan-jobs` never reads `facts.md` — this is just a reminder riding along on a surface the user is already looking at.
+
 ## Out of scope
 
 No LinkedIn scraping, no cross-run dedup tracking, no company culture/salary data lookups (`get_company_data`). These are documented extensions in `spec.md`, not missing functionality — don't build toward them unprompted. (Recurring scans ARE supported: offer a scheduled task if the user wants automatic daily scans.)
