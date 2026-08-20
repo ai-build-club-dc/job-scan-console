@@ -115,6 +115,8 @@ def normalize_provenance(raw):
         return "attested"
     if v in ("self-reported", "self reported", "self_reported"):
         return "self-reported"
+    if v in ("declined",):
+        return "declined"
     # Anything else (blank, misspelled, garbled) is treated as self-reported too --
     # the conservative default when we can't confirm a paper trail exists.
     return "self-reported"
@@ -227,6 +229,59 @@ NUM_TOKEN_RE = re.compile(
 )
 
 
+_ASCII_LETTERS = frozenset(
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+)
+
+
+def _is_alphanumeric_identifier_tail(text, start):
+    """True if the digit run beginning at `text[start]` is the TAIL of an
+    alphanumeric identifier like "F18" or "R11" -- i.e. a letter, then one or
+    more digits, with the candidate match starting partway through that digit
+    run rather than at its front.
+
+    NUM_TOKEN_RE's own LEFT guard, `(?<![A-Za-z])`, is a fixed-width
+    lookbehind (Python's `re` doesn't support variable-width ones), so it can
+    only block a digit that is directly preceded by a letter -- the FIRST
+    digit of the run. For a single citation digit like "F4" that's enough:
+    the only possible start position right after "F" is blocked, so no match
+    is attempted anywhere in the token. But for a row citation with two or
+    more digits, like "F18" or "R11", the first digit ("1") is blocked, and
+    finditer simply tries the next position instead: "8" (in "F18") or the
+    second "1" (in "R11") is preceded by another DIGIT, not a letter, so the
+    regex-level guard doesn't see it and it matches as if it were a bare
+    claim number. This was masked in testing as long as every registry fit
+    in single-digit ids (F1-F9); it surfaced once a registry passed 9 rows
+    and citations like "F18"/"R11" started appearing in tracer prose.
+
+    This walks left from the candidate match by hand -- skipping back over
+    any run of digits -- and checks whether a letter sits just beyond them,
+    which is the variable-width equivalent of a `(?<![A-Za-z]\\d*)`
+    lookbehind. It intentionally only skips digits (not "." or ","), so it
+    does not reach past a decimal point or thousands separator -- "1,200"
+    and "35%" are unaffected, and a real number at the very start of a line
+    (nothing to walk back over) is never flagged as an identifier tail.
+    """
+    i = start
+    while i > 0 and text[i - 1].isdigit():
+        i -= 1
+    return i > 0 and text[i - 1] in _ASCII_LETTERS
+
+
+def iter_claim_number_matches(text):
+    """Yield NUM_TOKEN_RE matches from `text`, dropping any match that is
+    really the tail digits of an alphanumeric identifier (row citations like
+    "F18"/"R11", version strings, etc.) rather than a standalone claim
+    number. Both call sites that scan free text for numeric claims (Check
+    2/7's per-line scan and numbers_in_text's registry-row scan) go through
+    this instead of calling NUM_TOKEN_RE.finditer directly, so the guard is
+    applied consistently everywhere a "number" is extracted from prose."""
+    for m in NUM_TOKEN_RE.finditer(text):
+        if _is_alphanumeric_identifier_tail(text, m.start()):
+            continue
+        yield m
+
+
 def parse_number(token):
     """Normalize '$120K', '120,000', '25%', '400+' etc. to a comparable float, so
     that '$120K' == '$120,000' == '120000' the way the spec requires. Percent
@@ -250,7 +305,7 @@ def parse_number(token):
 def numbers_in_text(text):
     """All numeric values found in a blob of text."""
     out = []
-    for m in NUM_TOKEN_RE.finditer(text):
+    for m in iter_claim_number_matches(text):
         v = parse_number(m.group(0))
         if v is not None:
             out.append(v)
@@ -287,7 +342,9 @@ def is_probable_calendar_year(token, value):
 
 
 def best_provenance(rows):
-    """Given rows that all matched the same claim, decide clean vs. WARN. If ANY
+    """Given rows that all matched the same claim, decide clean vs. WARN vs. declined
+    (ERROR: the user explicitly disavowed the fact at attestation, so a claim tracing
+    only to a declined row is worse than untraceable -- it is disavowed). If ANY
     matching row carries a paper trail (résumé/attested), the claim is clean --
     it doesn't matter that some *other* row for the same figure is self-reported.
     Only WARN when every match is self-reported. Picking the first match instead of
@@ -297,6 +354,9 @@ def best_provenance(rows):
     for r in rows:
         if r.provenance in ("résumé", "attested"):
             return "clean", r
+    for r in rows:
+        if r.provenance == "declined":
+            return "declined", r
     return "warn", rows[0]
 
 
@@ -733,6 +793,17 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
                 status, row = best_provenance(matches)
                 if status == "clean":
                     stats.dates_clean += 1
+                elif status == "declined":
+                    record(
+                        findings_map,
+                        "ERROR",
+                        "dates",
+                        f'Date range "{m.group(0)}" traces ONLY to facts.md row {row.id}, '
+                        "which the user explicitly DECLINED to stand behind at "
+                        "attestation -- a disavowed fact must not appear at all.",
+                        i,
+                        line.strip(),
+                    )
                 else:
                     record(
                         findings_map,
@@ -782,6 +853,17 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
                 status, row = best_provenance(matches)
                 if status == "clean":
                     stats.credentials_clean += 1
+                elif status == "declined":
+                    record(
+                        findings_map,
+                        "ERROR",
+                        "credentials",
+                        f'Credential "{mention}" traces ONLY to facts.md row {row.id}, '
+                        "which the user explicitly DECLINED to stand behind at "
+                        "attestation -- a disavowed fact must not appear at all.",
+                        i,
+                        line.strip(),
+                    )
                 else:
                     record(
                         findings_map,
@@ -809,7 +891,7 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
         working_no_cred = blank_spans(working_no_dates, cred_spans)
 
         # ---- Check 2 / Check 7: metrics and zero-source ---------------------------
-        for m in NUM_TOKEN_RE.finditer(working_no_cred):
+        for m in iter_claim_number_matches(working_no_cred):
             token = m.group(0)
             value = parse_number(token)
             if value is None:
@@ -824,6 +906,17 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
                 status, row = best_provenance(metric_matches)
                 if status == "clean":
                     stats.metrics_clean += 1
+                elif status == "declined":
+                    record(
+                        findings_map,
+                        "ERROR",
+                        "metrics",
+                        f'"{token}" traces ONLY to facts.md row {row.id}, '
+                        "which the user explicitly DECLINED to stand behind at "
+                        "attestation -- a disavowed fact must not appear at all.",
+                        i,
+                        line.strip(),
+                    )
                 else:
                     record(
                         findings_map,

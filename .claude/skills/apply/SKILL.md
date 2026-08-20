@@ -30,11 +30,13 @@ the `job-scan-console` folder (the folder containing this skill's `.claude/`), e
   determines what to ask for next, since a page the student can't get past and a page that's gone
   aren't the same problem and don't call for the same ask:
 
-  - **Blocked, behind a login wall, or timed out** — the student likely has access even though this
-    session doesn't. Say the fetch failed and why, then ask the student to paste the posting text into
-    chat. This isn't a rare edge case — LinkedIn and Workday, between them a large share of where
-    students actually find jobs, sit behind login walls or render via JS, so this is the common case,
-    not the exception.
+  - **Behind a login wall, renders via JS, timed out, or the fetch tool was blocked (403)** — the
+    student likely has access even though this session doesn't. That includes a plain 403: a fetch
+    tool being refused on a page the student can probably open directly in their own browser is the
+    same situation as a login wall for this purpose, not a sign the listing is gone. Say the fetch
+    failed and why, then ask the student to paste the posting text into chat. This isn't a rare edge
+    case — LinkedIn and Workday, between them a large share of where students actually find jobs, sit
+    behind login walls or render via JS, so this is the common case, not the exception.
   - **404, or otherwise clearly gone** — the listing itself may no longer exist, and asking the student
     to paste text they may not have is the wrong ask. Say plainly that the listing looks dead, and ask
     whether they have another link to the same posting or a saved copy (an email, a screenshot, a
@@ -178,6 +180,10 @@ Always include that total line — for a real batch it's the whole point of the 
 is ~50 research fetches and ten tracer subagents under one approval, and the per-job lines
 shouldn't make the user do that arithmetic themselves.
 
+**Resuming an `INCOMPLETE` folder.** Mark each file in the Files line `✓ (reused)` if it already
+exists or `(to build)` if it doesn't, instead of listing them all as pending, and shrink the Research
+budget line to only the fetches/subagent work the missing files actually require.
+
 **Wait for one reply.** Nothing downstream — no folder, no file, no fetch — runs before it arrives.
 The reply grammar is `go`, optionally with per-job `skip <name>` clauses in the same message. There
 are no depth tiers to override (every job gets the full package — see `docs/apply-package-spec.md`
@@ -245,7 +251,10 @@ machinery talking to itself.
 **Slug.** `<Company>-<Full-Role-Title>`: the company name and the job's title (from step 1), each
 proper-cased, spaces and punctuation replaced with single hyphens (e.g. `Humana-Lead-AI-Technical-Product-Manager`).
 No role-type abbreviation — this repo has no controlled vocabulary of role tags, and inventing one
-wouldn't generalize past product-management careers.
+wouldn't generalize past product-management careers. A report entry's heading is `## N. Job Title —
+Company` (`/scan-jobs` SKILL.md §8); a parenthetical qualifier inside that title portion (e.g.
+`Product Manager (Remote)`) is part of the posted title, not a separate annotation to drop — it joins
+the slug the same as any other title text, per the Punctuation rule below.
 
 **Punctuation.** Replace every run of whitespace or punctuation (commas, slashes, parentheses,
 ampersands, existing hyphens included) with a single hyphen, then collapse any resulting run of
@@ -383,6 +392,11 @@ nothing in this run actually fetched.
 Free-text tailoring of `resume.md`'s content against `facts.md`, aimed at this specific JD (from
 `job-post.md`). Draw only on facts that exist in the registry — this is a generator that writes new
 prose about the user's career from real material, not one that reshuffles existing bullets untouched.
+
+**Rows with `provenance: declined` are off-limits.** The user explicitly declined to stand behind
+them — they are never used, never paraphrased, and never implied, even loosely or in passing. Treat
+a `declined` row as absent from the registry for the purposes of this section, not merely as a weaker
+source than `self-reported`.
 
 **This file contains the résumé, and nothing else** — no HTML comments, no working notes, because
 `honesty_lint.py` has no comment awareness and scans every line as résumé content, silently inflating
@@ -522,7 +536,8 @@ heading level and text exactly right the first time.
 2. **What your record evidences** — for each requirement, **reference its identifier from section 1
    (`R1`, `R2`, …) — do not restate the requirement's text.** Measure it **against `facts.md`**, never
    against `tailored-resume.md`'s prose: *meet* / *partially evidence* / *no evidence*, citing the
-   row(s), e.g. `R1 — meet (F4, F7)`.
+   row(s), e.g. `R1 — meet (F4, F7)`. `F<n>` refers to `facts.md` row `n`: the registry's `id` column
+   is bare integers, and `F` is only this citation's prefix convention, not part of the id itself.
    **This is deliberate and load-bearing — do not "simplify" it into checking the résumé instead.**
    If this section audited the résumé's prose, a
    fabricated bridge in the résumé (say, "led the redesign" where the registry only backs "contributed
@@ -626,37 +641,48 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
 
 1. Resolve the folder against `applications/*` (by company/role match, same ask-on-ambiguity rule as
    step 1) — **not** against `reports/`, since this operates on a package that already exists.
-2. Re-run the tracer (4.4) on the **current** `tailored-resume.md` + `facts.md` — same prompt, same
+2. **Read the existing `lint-report.md`'s ledger before anything below touches it.** This is the
+   "before" snapshot that the flip-reporting in step 6 depends on — once step 5 overwrites the file,
+   the prior ledger is gone, so capturing it has to happen first, not be reconstructed from memory
+   afterward.
+3. Re-run the tracer (4.4) on the **current** `tailored-resume.md` + `facts.md` — same prompt, same
    isolation, one fresh subagent.
-3. Re-run the script over whichever of the two claim-bearing materials actually exist in the folder —
+4. Re-run the script over whichever of the two claim-bearing materials actually exist in the folder —
    normally both, but an `INCOMPLETE` folder or one built before this skill folded gap-analysis
    findings into 4.5 may only have `tailored-resume.md`. Pass only what's present; the script exits
    non-zero on a missing material, so don't hand it a path that isn't there:
    ```
    python3 scripts/honesty_lint.py applications/<slug>/tailored-resume.md --registry facts.md
    python3 scripts/honesty_lint.py applications/<slug>/gap-analysis.md --registry facts.md --section "What your record evidences"
-
+   ```
    Two separate calls, not one. `--section` applies to *every* material passed in a single
    invocation, so linting both files together would either scope the résumé (wrong — the whole
    résumé is in scope) or leave the gap analysis unscoped (wrong — its JD-requirements section
    would ERROR on every quoted figure). Run whichever materials exist; skip a file that's absent.
-   ```
+
    (`gap-analysis.md`'s "what this job asks for" section is JD-derived and stays out of lint scope;
    only "what your record evidences" is in scope, matching `docs/apply-package-spec.md` §5.5 — and
    per 4.5, that section itself now carries no JD-derived numerals to begin with, so `--section` is
    belt-and-suspenders here, not the only thing standing between the JD's numbers and a false ERROR.)
-4. Overwrite `lint-report.md` with the fresh ledger + findings, same structure as 4.4. This is **not**
+5. Overwrite `lint-report.md` with the fresh ledger + findings, same structure as 4.4. This is **not**
    a rebuild — it doesn't touch any other file in the folder, and it never triggers the `-2` collision
    suffix.
-5. Report the new ERROR/WARN counts and the ledger's NO SOURCE count, and note anything that flipped
-   since the last lint (newly traced, newly untraceable). **A flip doesn't necessarily mean the
-   document changed** — the tracer is a single model pass, not a deterministic check, so a claim can
-   flip between two lint runs over *identical* `tailored-resume.md` content purely from run-to-run
-   variance. That's truer now than when this skill ran three tracers per lint and combined them by
-   union — a single pass has nothing to average against, so its nondeterminism shows up directly in
-   what the user sees. Report a flip either way, but don't imply the file changed if it didn't, and
-   treat a claim that flips between runs as deserving **more** scrutiny than one that traces the same
-   way every time — instability in the verdict is itself signal, not noise to explain away.
+6. Report the new ERROR/WARN counts and the ledger's NO SOURCE count, and note anything that flipped
+   since the last lint (newly traced, newly untraceable), using the step-2 snapshot as the "before."
+   **A claim the previous ledger listed that the new tracer simply stops enumerating is treated as
+   still-unresolved, not cleared** — a claim dropping off the list is not evidence it traced cleanly,
+   only that this pass didn't surface it; report it as still outstanding rather than letting silence
+   read as resolution. **A flip doesn't necessarily mean the document changed** — the tracer is a
+   single model pass, not a deterministic check, so a claim can flip between two lint runs over
+   *identical* `tailored-resume.md` content purely from run-to-run variance. That's truer now than
+   when this skill ran three tracers per lint and combined them by union — a single pass has nothing
+   to average against, so its nondeterminism shows up directly in what the user sees. Report a flip
+   either way, but don't imply the file changed if it didn't, and treat a claim that flips between
+   runs as deserving **more** scrutiny than one that traces the same way every time — instability in
+   the verdict is itself signal, not noise to explain away. The §6 honesty caveat ("passing the lint
+   and the tracer is not the same as a claim being true," and the single-pass-judgment caveat right
+   after it) applies to a standalone re-lint's report exactly as it does to a fresh build — say it
+   here too, not only after §4's builds.
 
 ## 6. Wrap-up
 

@@ -394,6 +394,61 @@ class TestSourceTextScopeRegression(HonestyLintTestCase):
         self.assertNotIn('"4" does not match', out)
 
 
+class TestTwoDigitCitationRegression(HonestyLintTestCase):
+    """14-citation-digit-guard.md against facts-18rows.md: the two-digit row
+    citation bug in NUM_TOKEN_RE. Its LEFT guard, `(?<![A-Za-z])`, is a
+    fixed-width lookbehind, so it only ever blocks the FIRST digit right after
+    a letter. A single-digit citation like "F4" is fully blocked -- there's no
+    second position for finditer to retry -- but a two-or-more-digit citation
+    like "F18" or "R11" isn't: after "1" is blocked, finditer tries "8" next,
+    which is preceded by a DIGIT rather than a letter, so the old guard let it
+    through as a bare claim number ("8"). Same for "R11" -> "1". This stayed
+    invisible in testing as long as every registry fit in single digits; it
+    surfaced once a registry passed 9 rows and citations needed two digits."""
+
+    def test_two_digit_row_citations_produce_no_findings(self):
+        rc, out = run_lint(
+            "14-citation-digit-guard.md", registry="facts-18rows.md"
+        )
+        self.assertEqual(rc, 0)
+        # Only the real unbacked "47" ERRORs -- "F18" and "R11" must not
+        # surface as phantom "8" / "1" zero-source findings.
+        self.assert_counts(out, 1, 0)
+        self.assertNotIn('"8" does not match', out)
+        self.assertNotIn('"1" does not match', out)
+        # exactly 1 numeric claim was even considered: proves the citations
+        # were never extracted as claims at all, not just filtered afterward.
+        self.assertIn("_Checked: 1 numeric claim(s) (0 traced cleanly)", out)
+
+    def test_real_unbacked_two_digit_number_still_errors(self):
+        """Control: a genuine unbacked two-digit number on the SAME line as
+        the citations must still ERROR as zero-source. Guards against a
+        trivially over-broad fix (e.g. one that blanks all digits near
+        letters) that would silently swallow real findings too."""
+        rc, out = run_lint(
+            "14-citation-digit-guard.md", registry="facts-18rows.md"
+        )
+        self.assertIn(
+            '**[check 7 · zero-source] ERROR** -- "47" does not match any '
+            "row in facts.md, of any kind.",
+            out,
+        )
+
+
+class TestDeclinedProvenance(HonestyLintTestCase):
+    """15-declined-row.md against facts-declined.md: a claim tracing ONLY to a
+    row the user explicitly declined to stand behind at attestation is a hard
+    ERROR (disavowed), not a WARN -- worse than untraceable, because the user
+    was asked and said no. A résumé-backed number on the same line stays clean."""
+
+    def test_declined_row_is_error_not_warn(self):
+        rc, out = run_lint("15-declined-row.md", registry="facts-declined.md")
+        self.assertEqual(rc, 0)
+        self.assert_counts(out, 1, 0)
+        self.assertIn("DECLINED to stand behind", out)
+        self.assertIn("(1 traced cleanly)", out)  # the résumé-backed "12" stays clean
+
+
 # --------------------------------------------------------------------------------------
 # 2. The LLM credential regression, and its neighboring degree patterns
 # --------------------------------------------------------------------------------------
