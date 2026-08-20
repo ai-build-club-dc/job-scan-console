@@ -1,0 +1,687 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your Job Search, Step by Step — Job Scan Console Guide</title>
+<style>
+  :root {
+    --indigo: #4f46e5;
+    --indigo-dark: #4338ca;
+    --indigo-light: #eef2ff;
+    --indigo-border: #c7d2fe;
+    --bg: #f8fafc;
+    --card: #ffffff;
+    --ink: #111827;
+    --ink-soft: #4b5563;
+    --ink-faint: #6b7280;
+    --border: #e5e7eb;
+    --green: #16a34a;
+    --green-light: #f0fdf4;
+    --green-border: #bbf7d0;
+    --amber: #92400e;
+    --amber-light: #fffbeb;
+    --amber-border: #fde68a;
+
+    --stage-setup: #4f46e5;
+    --stage-setup-bg: #eef2ff;
+    --stage-scan: #0891b2;
+    --stage-scan-bg: #ecfeff;
+    --stage-apply: #7c3aed;
+    --stage-apply-bg: #f5f3ff;
+    --stage-interview: #db2777;
+    --stage-interview-bg: #fdf2f8;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+  }
+
+  code, .chip, .tag, .mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  /* ---------- Header ---------- */
+
+  header.hero {
+    text-align: center;
+    padding: 28px 16px 36px;
+  }
+
+  .kicker {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--indigo);
+    background: var(--indigo-light);
+    border: 1px solid var(--indigo-border);
+    padding: 4px 12px;
+    border-radius: 999px;
+    margin-bottom: 16px;
+  }
+
+  h1 {
+    font-size: clamp(26px, 5vw, 38px);
+    font-weight: 800;
+    margin: 0 0 14px;
+    letter-spacing: -0.02em;
+  }
+
+  .promise {
+    font-size: 17px;
+    color: var(--ink-soft);
+    max-width: 640px;
+    margin: 0 auto 14px;
+  }
+
+  .workshop-note {
+    font-size: 13px;
+    color: var(--ink-faint);
+    font-style: italic;
+  }
+
+  /* ---------- Section headers ---------- */
+
+  .section-head {
+    margin: 48px 0 20px;
+  }
+
+  .section-head h2 {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+
+  .section-head p {
+    margin: 0;
+    color: var(--ink-faint);
+    font-size: 14.5px;
+  }
+
+  /* ---------- Stage legend ---------- */
+
+  .stage-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .stage-pill {
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+  }
+
+  .stage-pill.setup    { color: var(--stage-setup);    background: var(--stage-setup-bg);    border-color: var(--stage-setup); }
+  .stage-pill.scan      { color: var(--stage-scan);     background: var(--stage-scan-bg);     border-color: var(--stage-scan); }
+  .stage-pill.apply     { color: var(--stage-apply);    background: var(--stage-apply-bg);    border-color: var(--stage-apply); }
+  .stage-pill.interview { color: var(--stage-interview);background: var(--stage-interview-bg);border-color: var(--stage-interview); }
+
+  /* ---------- Timeline ---------- */
+
+  ol.timeline {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+  }
+
+  li.step {
+    position: relative;
+    padding-left: 60px;
+    padding-bottom: 22px;
+  }
+
+  li.step::before {
+    /* connecting rail */
+    content: "";
+    position: absolute;
+    left: 21px;
+    top: 44px;
+    bottom: -4px;
+    width: 2px;
+    background: var(--border);
+  }
+
+  li.step:last-child::before {
+    display: none;
+  }
+
+  .step-dot {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 16px;
+    color: #fff;
+    box-shadow: 0 0 0 4px var(--bg);
+  }
+
+  li[data-stage="setup"] .step-dot     { background: var(--stage-setup); }
+  li[data-stage="scan"] .step-dot       { background: var(--stage-scan); }
+  li[data-stage="apply"] .step-dot      { background: var(--stage-apply); }
+  li[data-stage="interview"] .step-dot  { background: var(--stage-interview); }
+
+  .step-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  }
+
+  li[data-stage="setup"] .step-card     { border-left: 4px solid var(--stage-setup); }
+  li[data-stage="scan"] .step-card       { border-left: 4px solid var(--stage-scan); }
+  li[data-stage="apply"] .step-card      { border-left: 4px solid var(--stage-apply); }
+  li[data-stage="interview"] .step-card  { border-left: 4px solid var(--stage-interview); }
+
+  .stage-badge-inline {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 2px 9px;
+    border-radius: 999px;
+    margin-bottom: 10px;
+  }
+
+  li[data-stage="setup"] .stage-badge-inline     { color: var(--stage-setup);    background: var(--stage-setup-bg); }
+  li[data-stage="scan"] .stage-badge-inline       { color: var(--stage-scan);     background: var(--stage-scan-bg); }
+  li[data-stage="apply"] .stage-badge-inline      { color: var(--stage-apply);    background: var(--stage-apply-bg); }
+  li[data-stage="interview"] .stage-badge-inline  { color: var(--stage-interview);background: var(--stage-interview-bg); }
+
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 8px;
+    font-size: 14.5px;
+    margin-bottom: 6px;
+    min-width: 0;
+  }
+
+  .row:last-of-type {
+    margin-bottom: 0;
+  }
+
+  .label {
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    flex: 0 0 auto;
+    width: 60px;
+  }
+
+  .chip {
+    background: #111827;
+    color: #f9fafb;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    white-space: nowrap;
+    max-width: 100%;
+    overflow-x: auto;
+    display: inline-block;
+    vertical-align: bottom;
+  }
+
+  .tag {
+    background: var(--indigo-light);
+    color: var(--indigo-dark);
+    border: 1px solid var(--indigo-border);
+    padding: 1px 8px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--ink-faint);
+    margin: 4px 0 6px 0;
+    padding-left: 0;
+  }
+
+  .hint::before {
+    content: "\2192\00a0";
+  }
+
+  /* ---------- Situations ---------- */
+
+  .situations {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  details.situation {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 4px 0;
+    overflow: hidden;
+  }
+
+  details.situation summary {
+    cursor: pointer;
+    padding: 14px 18px;
+    font-weight: 700;
+    font-size: 15px;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  details.situation summary::-webkit-details-marker {
+    display: none;
+  }
+
+  details.situation summary::before {
+    content: "+";
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--indigo-light);
+    color: var(--indigo);
+    font-weight: 800;
+    font-size: 15px;
+  }
+
+  details.situation[open] summary::before {
+    content: "\2212";
+  }
+
+  details.situation[open] summary {
+    border-bottom: 1px solid var(--border);
+  }
+
+  .situation-body {
+    padding: 14px 18px 18px 50px;
+    font-size: 14px;
+  }
+
+  .situation-body p {
+    margin: 0 0 8px;
+  }
+
+  .situation-body p:last-child {
+    margin-bottom: 0;
+  }
+
+  .situation-body .see-label {
+    color: var(--ink-faint);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+
+  .situation-body .do-label {
+    color: var(--indigo);
+    font-weight: 700;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    margin-right: 6px;
+  }
+
+  .reassure {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--green);
+    background: var(--green-light);
+    border: 1px solid var(--green-border);
+    padding: 2px 9px;
+    border-radius: 999px;
+  }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+    color: var(--ink-faint);
+    font-size: 13.5px;
+  }
+
+  footer p {
+    margin: 4px 0;
+  }
+
+  footer code {
+    background: var(--indigo-light);
+    color: var(--indigo-dark);
+    padding: 1px 6px;
+    border-radius: 5px;
+    font-size: 12.5px;
+  }
+
+  /* ---------- Responsive ---------- */
+
+  @media (max-width: 480px) {
+    .wrap { padding: 20px 14px 60px; }
+    li.step { padding-left: 52px; }
+    .step-dot { width: 38px; height: 38px; font-size: 14px; }
+    li.step::before { left: 18px; top: 38px; }
+    .row { flex-direction: column; gap: 2px; }
+    .label { width: auto; }
+    .situation-body { padding-left: 18px; }
+    .chip {
+      white-space: normal;
+      word-break: break-word;
+      overflow-x: visible;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <span class="kicker">Job Scan Console</span>
+    <h1>Your Job Search, Step by Step</h1>
+    <p class="promise">You talk to Claude. It scans, checks, and preps — and it never sends anything or makes claims your résumé can't back.</p>
+    <p class="workshop-note">made for AI Build Club workshop students</p>
+  </header>
+
+  <!-- ===================== TIMELINE ===================== -->
+
+  <div class="section-head">
+    <h2>The happy path</h2>
+    <p>Fourteen steps, four stages. Just follow them in order the first time through.</p>
+  </div>
+
+  <div class="stage-legend">
+    <span class="stage-pill setup">SETUP</span>
+    <span class="stage-pill scan">SCAN</span>
+    <span class="stage-pill apply">APPLY</span>
+    <span class="stage-pill interview">INTERVIEW</span>
+  </div>
+
+  <ol class="timeline">
+
+    <!-- SETUP -->
+    <li class="step" data-stage="setup">
+      <div class="step-dot">1</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Setup</span>
+        <div class="row"><span class="label">You do</span> Ask Claude: <code class="chip">Onboard me</code> (have your résumé PDF nearby)</div>
+        <p class="hint">This starts a guided conversation — Claude reads your résumé and asks you questions, so you don't have to know what to type next.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">resume.md</span> your résumé as text</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="setup">
+      <div class="step-dot">2</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Setup</span>
+        <div class="row"><span class="label">You do</span> Confirm your career facts and answer a few questions</div>
+        <div class="row"><span class="label">You get</span> <span class="tag">facts.md</span> every claim with its source — this powers the honesty checks</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="setup">
+      <div class="step-dot">3</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Setup</span>
+        <div class="row"><span class="label">You do</span> Answer the preferences interview (titles, location, salary floor)</div>
+        <div class="row"><span class="label">You get</span> <span class="tag">profile.md</span> what every scan searches for</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="setup">
+      <div class="step-dot">4</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Setup</span>
+        <div class="row"><span class="label">You do</span> Start the console: <code class="chip">python3 -m http.server 8642 --bind 127.0.0.1</code></div>
+        <p class="hint">This turns your own laptop into a tiny, private web server — nothing leaves your machine — so the console page can load its files.</p>
+        <div class="row"><span class="label">You do</span> Then open <code class="chip">localhost:8642/console/</code> in your browser</div>
+        <p class="hint">That's the address for the server you just started — think of it as a local-only web address only you can see.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">console</span> your live dashboard</div>
+      </div>
+    </li>
+
+    <!-- SCAN -->
+    <li class="step" data-stage="scan">
+      <div class="step-dot">5</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Scan</span>
+        <div class="row"><span class="label">You do</span> <code class="chip">/scan-jobs</code></div>
+        <p class="hint">Type this in Claude to have it search for open roles that match your profile.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">reports/</span> a ranked report: fit score out of 10 with reasons, real apply links</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="scan">
+      <div class="step-dot">6</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Scan</span>
+        <div class="row"><span class="label">You do</span> Say <code class="chip">scan daily</code> if you want it automatic</div>
+        <p class="hint">This asks Claude to run the scan again on its own each day, so you don't have to remember to.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">reports/</span> a fresh report every morning</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="scan">
+      <div class="step-dot">7</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Scan</span>
+        <div class="row"><span class="label">You do</span> Click any job row in the console</div>
+        <div class="row"><span class="label">You get</span> <span class="tag">job detail</span> three sections: why this job, behind the score, the posting</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="scan">
+      <div class="step-dot">8</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Scan</span>
+        <div class="row"><span class="label">You do</span> Click <code class="chip">Queue</code> on jobs you like</div>
+        <div class="row"><span class="label">You get</span> <span class="tag">queue</span> your shortlist</div>
+      </div>
+    </li>
+
+    <!-- APPLY -->
+    <li class="step" data-stage="apply">
+      <div class="step-dot">9</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Apply</span>
+        <div class="row"><span class="label">You do</span> <code class="chip">/apply &lt;company&gt;</code> — read the plan it shows you, reply <code class="chip">go</code></div>
+        <p class="hint">Claude shows you what it's about to build before it builds anything — typing "go" is your green light to proceed.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">applications/</span> a full application package: tailored résumé, honesty check, gap analysis</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="apply">
+      <div class="step-dot">10</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Apply</span>
+        <div class="row"><span class="label">You do</span> Or <code class="chip">/apply &lt;link you found online&gt;</code></div>
+        <p class="hint">Paste any job posting URL after the command to build a package for a job you found outside the console.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">applications/</span> same package for any job post URL (it won't show in the console — that's normal)</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="apply">
+      <div class="step-dot">11</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Apply</span>
+        <div class="row"><span class="label">You do</span> Read <code class="chip">gap-analysis.md</code> before applying</div>
+        <div class="row"><span class="label">You get</span> <span class="tag">gap-analysis.md</span> an honest read on where you match and where you don't</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="apply">
+      <div class="step-dot">12</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Apply</span>
+        <div class="row"><span class="label">You do</span> Edited your résumé by hand? Ask for a <code class="chip">re-lint</code></div>
+        <p class="hint">Just ask Claude in plain words, e.g. "re-lint this" — it re-runs the honesty check on your edited version.</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">honesty-check.md</span> your edit gets checked too</div>
+      </div>
+    </li>
+
+    <!-- INTERVIEW -->
+    <li class="step" data-stage="interview">
+      <div class="step-dot">13</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Interview</span>
+        <div class="row"><span class="label">You do</span> <code class="chip">/interview-prep &lt;company or job link&gt;</code> + your round</div>
+        <p class="hint">Tell Claude the company (or paste the job link) and which interview round you're prepping for — e.g. "first round" or "onsite."</p>
+        <div class="row"><span class="label">You get</span> <span class="tag">interview-prep/</span> company research, interviewer dossier, and a flip-card practice deck</div>
+      </div>
+    </li>
+
+    <li class="step" data-stage="interview">
+      <div class="step-dot">14</div>
+      <div class="step-card">
+        <span class="stage-badge-inline">Interview</span>
+        <div class="row"><span class="label">You do</span> Later rounds: tell it the round number and how the last one went</div>
+        <div class="row"><span class="label">You get</span> <span class="tag">interview-prep/</span> a new deck, earlier ones kept</div>
+      </div>
+    </li>
+
+  </ol>
+
+  <!-- ===================== SITUATIONS ===================== -->
+
+  <div class="section-head">
+    <h2>When things go differently — totally normal</h2>
+    <p>None of these are errors. Click any one to see what's happening and what to do next.</p>
+  </div>
+
+  <div class="situations">
+
+    <details class="situation">
+      <summary>Claude says it can't scan — no Indeed connector</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>Claude tells you plainly that it can't run the scan yet — it will never invent jobs just to give you an answer.</p>
+        <p><span class="do-label">What to do</span>Add the Indeed connector to your Claude account, then run <code>/scan-jobs</code> again.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>The scan found nothing</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>The report says so honestly — an empty report, not a fake one.</p>
+        <p><span class="do-label">What to do</span>Widen your titles or location in a Claude session, or just scan again tomorrow.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>You never replied "go" to the apply plan</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>Nothing was created — on purpose. Claude waits for your green light before building anything.</p>
+        <p><span class="do-label">What to do</span>Nothing to clean up. Reply <code>go</code> whenever you're ready.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>The job link won't open (LinkedIn etc.)</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>Claude explains it can't open the page and asks you to paste the posting text instead.</p>
+        <p><span class="do-label">What to do</span>Copy the job description from your browser and paste it into the chat.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>A job you applied to via link isn't in the console</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>That's expected — the console only shows scan reports, not every application you've built.</p>
+        <p><span class="do-label">What to do</span>Nothing — your package is safe in <code>applications/</code>.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>Your computer/Claude crashed mid-build</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>The folder is marked <code>INCOMPLETE</code>, so it's obvious nothing got lost silently.</p>
+        <p><span class="do-label">What to do</span>Run <code>/apply &lt;company&gt;</code> again — it resumes where it left off.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>The console page shows "Can't load data"</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>This happens when you opened the file directly instead of through a server.</p>
+        <p><span class="do-label">What to do</span>Run the serve command it shows you, then use the localhost link (see Step 4 above).</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>"process my queue" didn't build anything</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>Claude can't see the console's Queue button — it will show you a list of queued jobs instead.</p>
+        <p><span class="do-label">What to do</span>Name the jobs you want it to build applications for.</p>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>The honesty check flagged something (NO SOURCE)</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>The system caught a claim your résumé can't back up.</p>
+        <p><span class="do-label">What to do</span>This is the feature working, not a bug — fix the line or add the fact to your registry. Never send a flagged résumé.</p>
+        <span class="reassure">protecting you, not blocking you</span>
+      </div>
+    </details>
+
+    <details class="situation">
+      <summary>Claude asked which of two similar jobs/folders you meant</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>A lettered list of options — Claude never guesses when things are ambiguous.</p>
+        <p><span class="do-label">What to do</span>Pick from the list; the recommended one is marked for you.</p>
+      </div>
+    </details>
+
+  </div>
+
+  <footer>
+    <p>Want more depth? See <code>USER-GUIDE.md</code> in the repo.</p>
+    <p>Or just ask Claude — it knows this repo.</p>
+  </footer>
+
+</div>
+</body>
+</html>
