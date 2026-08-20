@@ -75,7 +75,7 @@ You can also paste specific job postings or links in the same message — Claude
 
 > You'll see: after the scan finishes, a short chat summary — how many results it found, the top few by score, and the file path of the new report. Claude won't dump the whole report into the chat; the file itself is the artifact.
 
-Claude writes one new report per run into `reports/`, named for the date and time. Each entry lists the job title and company, location, salary (or "not listed" if the posting doesn't show one), a fit score, a one-line "Why," and a real apply link.
+Claude writes one new report per run into `reports/`, named for the date and time. Each entry lists the job title and company, location, salary (or "not listed" if the posting doesn't show one), a fit score, and a real apply link. Click a row in the console to expand it, and you'll see three short sections: why the job's recommended, what drove the score, and the posting's main points.
 
 Every job is scored out of 10, built from three parts:
 
@@ -83,7 +83,7 @@ Every job is scored out of 10, built from three parts:
 - **Substance (0–4)** — how well the actual work matches your background; this dimension is personalized to you during onboarding, built from your resume
 - **Logistics (0–2)** — how cleanly location and salary line up with no friction, versus things like a hybrid requirement or a salary band that straddles your floor
 
-Only jobs scoring 6/10 or higher make it into the report, and each report is capped at 10 results. The "Why" line always carries the breakdown, so you can see exactly how a score adds up — something like *(title 4 · substance 3 · logistics 2)*.
+Only jobs scoring 6/10 or higher make it into the report, and each report is capped at 10 results. Expand a row and the score section shows exactly how it adds up — each of the three parts with its points and a one-line reason, like *Title 4/4: exact match on "Product Manager"*. Reports written before this existed still open fine — they just show their original one-line rationale instead of the expanded sections.
 
 After your first scan, Claude will offer to record a few real results as **Calibration anchors** in your rubric — short examples like "Shoply Product Designer: 4+3+2 = 9" — so future scans stay consistent with how you actually judged the results.
 

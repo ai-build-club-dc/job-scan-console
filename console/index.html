@@ -226,6 +226,15 @@
   tr.rationale.open{display:table-row;}
   tr.rationale td{padding:0 8px 14px;border-bottom:1px solid var(--border);background:var(--accent-subtle);}
   .rationale-text{font-size:12.5px;color:var(--text-secondary);font-style:italic;padding-left:10px;border-left:2px solid var(--accent-border);}
+  .detail-section{padding-left:10px;border-left:2px solid var(--accent-border);margin-bottom:10px;}
+  .detail-section:last-child{margin-bottom:0;}
+  .detail-section .rationale-text{padding-left:0;border-left:none;margin:0;}
+  .detail-label{display:block;font-size:11.5px;font-weight:650;text-transform:uppercase;letter-spacing:.045em;color:var(--text-secondary);margin-bottom:5px;}
+  .detail-list{margin:0;padding-left:16px;list-style:disc;}
+  .detail-list li{font-size:12.5px;color:var(--text-secondary);line-height:1.5;margin-bottom:3px;}
+  .detail-list li:last-child{margin-bottom:0;}
+  .detail-list li::marker{color:var(--text-tertiary);}
+  .detail-list li strong{color:var(--text-primary);font-weight:650;}
   .c-queue{text-align:right;white-space:nowrap;}
   .queue-btn{display:inline-flex;align-items:center;gap:4px;padding:5px 10px;border:1px solid var(--border);border-radius:6px;font-size:11.5px;font-weight:600;color:var(--text-secondary);background:var(--surface);white-space:nowrap;transition:border-color .15s,color .15s,background .15s;}
   .queue-btn:hover{border-color:var(--border-strong);color:var(--text-primary);}
@@ -497,7 +506,7 @@
   </main>
 </div>
 
-<div class="mockup-badge">Console v0.8</div>
+<div class="mockup-badge">Console v0.9</div>
 
 <script>
   /* ---------- generic helpers ---------- */
@@ -589,6 +598,7 @@
     let current = null;
     let firstHeaderLine = -1;
     let lastFieldLine = -1;
+    let collectMode = null; // null | 'whyBullets' | 'score' | 'posting' -- which array a following "- " bullet run feeds
     for(let i = 0; i < lines.length; i++){
       const line = lines[i];
       const headerMatch = line.match(/^##\s+(\d+)\.\s*(.+)$/);
@@ -601,21 +611,52 @@
           rank: parseInt(headerMatch[1], 10),
           title: dashIdx > -1 ? rest.slice(0, dashIdx).trim() : rest,
           company: dashIdx > -1 ? rest.slice(dashIdx + 1).trim() : '',
-          location: '', salary: '', fit: null, why: '', apply: ''
+          location: '', salary: '', fit: null, why: '', apply: '',
+          whyBullets: [], score: [], posting: []
         };
         lastFieldLine = i;
+        collectMode = null;
         continue;
       }
       if(/^##\s+/.test(line)){
         if(current){ jobs.push(current); current = null; }
+        collectMode = null;
         continue;
       }
       if(!current) continue;
+
+      // "---" always ends whatever bullet block we were collecting.
+      if(/^-{3,}\s*$/.test(line.trim())){
+        collectMode = null;
+        continue;
+      }
+
+      // Blank lines are skipped, not terminators -- a collect block stays open across them.
+      if(line.trim() === ''){
+        continue;
+      }
+
+      // While collecting, "- " lines feed the active array and count as field lines
+      // (so trailing bullets don't leak into tailMarkdown).
+      if(collectMode && /^-\s+/.test(line)){
+        current[collectMode].push(line.replace(/^-\s+/, '').trim());
+        lastFieldLine = i;
+        continue;
+      }
+
+      // Any other non-blank line ends the current collect block before field matching.
+      collectMode = null;
+
       let m;
       if((m = line.match(/^\*\*Location:\*\*\s*(.+)$/))){ current.location = m[1].trim(); lastFieldLine = i; continue; }
       if((m = line.match(/^\*\*Salary:\*\*\s*(.+)$/))){ current.salary = m[1].trim(); lastFieldLine = i; continue; }
       if((m = line.match(/^\*\*Fit:\*\*\s*([\d.]+)\s*\/\s*10/))){ current.fit = m[1]; lastFieldLine = i; continue; }
+      if(/^\*\*Why:\*\*\s*$/.test(line)){ collectMode = 'whyBullets'; lastFieldLine = i; continue; }
       if((m = line.match(/^\*\*Why:\*\*\s*(.+)$/))){ current.why = m[1].trim(); lastFieldLine = i; continue; }
+      if(/^\*\*Score:\*\*\s*$/.test(line)){ collectMode = 'score'; lastFieldLine = i; continue; }
+      if((m = line.match(/^\*\*Score:\*\*\s*(.+)$/))){ current.score.push(m[1].trim()); lastFieldLine = i; continue; }
+      if(/^\*\*Posting:\*\*\s*$/.test(line)){ collectMode = 'posting'; lastFieldLine = i; continue; }
+      if((m = line.match(/^\*\*Posting:\*\*\s*(.+)$/))){ current.posting.push(m[1].trim()); lastFieldLine = i; continue; }
       if((m = line.match(/^\*\*Apply:\*\*\s*(.+)$/))){ current.apply = m[1].trim(); lastFieldLine = i; continue; }
     }
     if(current) jobs.push(current);
@@ -633,17 +674,54 @@
     return `<span class="filled">${'▓'.repeat(clamped)}</span><span class="empty">${'░'.repeat(10 - clamped)}</span>`;
   }
 
+  // Bolds a leading "Title 3/4:" / "Substance 4/4:" / "Logistics 2/2:" dimension tag
+  // on a Score bullet, so the dimension name reads as a key. Plain bullets pass through.
+  function formatScoreBullet(raw){
+    const m = raw.match(/^(Title|Substance|Logistics)(\s+\d+\/\d+)?:/);
+    if(m){
+      const lead = m[0];
+      return `<strong>${escapeHtml(lead)}</strong>${escapeHtml(raw.slice(lead.length))}`;
+    }
+    return escapeHtml(raw);
+  }
+
+  function detailSection(label, items, formatter){
+    if(!items || !items.length) return '';
+    const lis = items.map(t => `<li>${formatter ? formatter(t) : escapeHtml(t)}</li>`).join('');
+    return `<div class="detail-section"><span class="detail-label">${label}</span><ul class="detail-list">${lis}</ul></div>`;
+  }
+
+  // Builds the contents of the expanded rationale <td>. New-format jobs (any of
+  // whyBullets/score/posting present) get up to three stacked labeled sections.
+  // Old-format jobs (none of the three) render exactly what rendered pre-v0.9.
+  function rationaleContentHtml(job){
+    const hasDetail = (job.whyBullets && job.whyBullets.length) || (job.score && job.score.length) || (job.posting && job.posting.length);
+    if(!hasDetail){
+      const why = escapeHtml(job.why || 'No rationale provided.');
+      return `<p class="rationale-text">${why}</p>`;
+    }
+    let whyHtml = '';
+    if(job.whyBullets && job.whyBullets.length){
+      whyHtml = detailSection('Why this job', job.whyBullets);
+    } else if(job.why){
+      whyHtml = `<div class="detail-section"><span class="detail-label">Why this job</span><p class="rationale-text">${escapeHtml(job.why)}</p></div>`;
+    }
+    const scoreHtml = detailSection('Behind the score', job.score, formatScoreBullet);
+    const postingHtml = detailSection('The posting', job.posting);
+    return `${whyHtml}${scoreHtml}${postingHtml}`;
+  }
+
   function jobRowHtml(job, isOpen){
     const title = escapeHtml(job.title || '—');
     const company = escapeHtml(job.company || '—');
     const locHtml = escapeHtml(job.location || '—').replace(/\s*\(([^)]+)\)/, ' <span class="muted">($1)</span>');
     const salary = escapeHtml(job.salary || '—');
-    const why = escapeHtml(job.why || 'No rationale provided.');
     const fitLabel = job.fit == null ? '—' : escapeHtml(job.fit);
     const applyHtml = job.apply
       ? `<a href="${escapeHtml(job.apply)}" target="_blank" rel="noopener noreferrer">Apply <span aria-hidden="true">&#8599;</span></a>`
       : '<span class="muted">—</span>';
     const qKey = queueKeyFor(job);
+    const rationaleHtml = rationaleContentHtml(job);
     return `<tr class="data-row${isOpen ? ' open' : ''}" tabindex="0" role="button" aria-expanded="${isOpen}" data-rank="${job.rank}">
       <td class="c-rank"><span class="chevron" aria-hidden="true"><svg class="icon chevron-icon"><use href="#icon-chevron"></use></svg></span>${job.rank}</td>
       <td class="c-fit"><span class="fit-score">${fitLabel}<small>/10</small></span><span class="fit-bar">${fitBar(job.fit)}</span></td>
@@ -654,7 +732,7 @@
       <td class="c-apply">${applyHtml}</td>
       <td class="c-queue">${queueButtonHtml(qKey, isQueued(qKey))}</td>
     </tr>
-    <tr class="rationale${isOpen ? ' open' : ''}"><td colspan="8"><p class="rationale-text">${why}</p></td></tr>`;
+    <tr class="rationale${isOpen ? ' open' : ''}"><td colspan="8">${rationaleHtml}</td></tr>`;
   }
 
   function toggleRow(row){
