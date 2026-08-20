@@ -13,28 +13,39 @@ the `job-scan-console` folder (the folder containing this skill's `.claude/`), e
 
 ## 1. Resolve the job(s)
 
-Read every file in `reports/`, not just the newest — the console lets the user browse older reports,
-and they may be acting on something from last week.
-
 - **`/apply <url>`** — if the argument begins `http://` or `https://`, it is a URL, not a search
-  string. Do not substring-match it against `reports/` entries, and don't fall through to the
-  ambiguity rules below — none of them apply to a job that never came from a report. Fetch it (this is
+  string. **Skip straight to this bullet without reading `reports/` first** — none of the
+  report-matching logic in this step applies to a job that never came from a report, including the
+  "read every file in `reports/`" instruction that opens the next bullet, so reading the whole
+  `reports/` folder for a URL invocation is pure wasted motion. Do not substring-match it against
+  `reports/` entries, and don't fall through to the ambiguity rules below. Fetch it (this is
   the one pre-gate fetch the manifest gate in step 3 makes room for) and extract **company** and **role
   title** from the job description. If either can't be determined confidently, **ask** rather than
   guess — the same reasoning that sends two ambiguous text matches to the user instead of a coin flip
   applies here too, and a guessed company name silently produces a wrong folder slug with no report
   entry downstream to catch it.
 
-  If the fetch itself fails — blocked, behind a login wall, times out — there's no report summary to
-  degrade to the way a scan-sourced job can (step 4.1's chain), because there's no report entry at all
-  to fall back on. Say the fetch failed and why, then ask the student to paste the posting text into
-  chat. If they paste it, build normally from what they gave you and record `provenance: user-pasted
-  (<url>)` in `job-post.md` — the JD is still real, only its delivery route changed. If they decline,
-  **abort cleanly**: nothing written, no folder. This isn't a rare edge case — LinkedIn and Workday,
-  between them a large share of where students actually find jobs, sit behind login walls or render via
-  JS, so a blocked fetch is the common case, not the exception. Never build a package from a page that
-  yielded nothing; a near-empty `job-post.md` produces a hollow gap analysis while inviting the
-  tailoring step to fill the space with invention instead of fact.
+  If the fetch itself fails, there's no report summary to degrade to the way a scan-sourced job can
+  (step 4.1's chain), because there's no report entry at all to fall back on — but *how* it failed
+  determines what to ask for next, since a page the student can't get past and a page that's gone
+  aren't the same problem and don't call for the same ask:
+
+  - **Blocked, behind a login wall, or timed out** — the student likely has access even though this
+    session doesn't. Say the fetch failed and why, then ask the student to paste the posting text into
+    chat. This isn't a rare edge case — LinkedIn and Workday, between them a large share of where
+    students actually find jobs, sit behind login walls or render via JS, so this is the common case,
+    not the exception.
+  - **404, or otherwise clearly gone** — the listing itself may no longer exist, and asking the student
+    to paste text they may not have is the wrong ask. Say plainly that the listing looks dead, and ask
+    whether they have another link to the same posting or a saved copy (an email, a screenshot, a
+    cached page) instead of asking them to paste text.
+
+  Either way, if the student comes back with usable text, build normally from what they gave you and
+  record `provenance: user-pasted (<url>)` in `job-post.md` — the JD is still real, only its delivery
+  route changed. If they decline, or simply have nothing to give, **abort cleanly**: nothing written,
+  no folder. Never build a package from a page that yielded nothing; a near-empty `job-post.md`
+  produces a hollow gap analysis while inviting the tailoring step to fill the space with invention
+  instead of fact.
 
   **Exactly one URL per invocation.** Don't mix a URL with company names, and don't accept more than
   one URL in the same call. This isn't arbitrary: the batching rule below splits `/apply Acme, Globex`
@@ -47,8 +58,10 @@ and they may be acting on something from last week.
   A resolved URL job carries **company**, **role title** (both extracted), `fit: unscored`, and
   `source: <url>` — in place of the fit score and source-report filename a scan-resolved job carries.
   Keep these; they populate the manifest in step 3 the same way.
-- **`/apply <text>`** — match `<text>` against company names (and role title, if given) across all
-  report entries, case-insensitive substring match. A bare string that isn't cleanly one or the other
+- **`/apply <text>`** — first, read every file in `reports/`, not just the newest: the console lets
+  the user browse older reports, and they may be acting on something from last week. Then match
+  `<text>` against company names (and role title, if given) across all report entries,
+  case-insensitive substring match. A bare string that isn't cleanly one or the other
   (`/apply Capital One Shopping` could be a company or a product-line role name) is matched jointly
   against **both** the company name and the role title for every entry — a hit on either field counts
   as a match, so a string that only names the product line still resolves against the listing whose
@@ -198,7 +211,7 @@ redesign of the gate, not a tweak, and should be treated with that much scrutiny
 For a URL-resolved job, the manifest entry carries the amended shape:
 
 ```
-1. Acme Corp — Senior Product Manager        Fit: unscored (user-supplied URL)
+1. Acme Corp — Senior Product Manager        Fit: unscored (URL-sourced)
    source: https://boards.greenhouse.io/acme/jobs/12345
    → applications/Acme-Corp-Senior-Product-Manager/
    Files: job-post.md, company-context.md, tailored-resume.md, lint-report.md,
@@ -211,6 +224,15 @@ Total: 1 job, ~5 research fetches, 1 tracer subagent.
 The job-post fetch isn't listed as pending research here — per the carve-out above, it already
 happened before this manifest was printed, and listing it as pending would misrepresent what's left to
 do. The `Total:` line still always appears, exactly as it does for a scan-sourced build.
+
+**"URL-sourced" is deliberately neutral, not a placeholder for "fetched successfully."** §4.1 draws a
+sharp line between `provenance: user-supplied URL (<url>)` (the fetch worked) and `provenance:
+user-pasted (<url>)` (it didn't, and the student pasted the text instead) — that distinction matters
+and belongs in `job-post.md`, which is built to carry it precisely. It doesn't need a second home in
+the manifest: printing "(user-supplied URL)" here would be wrong on every job where the fetch failed
+and the student had to paste, which is not a rare outcome (see step 1). "URL-sourced" is true in both
+cases, so the manifest label never has to track which one actually happened — it just says the job
+came from a URL, and `job-post.md`'s provenance line is where the fetched-vs-pasted distinction lives.
 
 ## 4. Build, per approved job
 
@@ -266,8 +288,10 @@ rather than restarting from `job-post.md`.
 `jk=` to resolve, because this job never came from a report entry — it came from the fetch already
 done in step 1. Write the JD fetched there directly into `job-post.md`, with a provenance line of
 `provenance: user-supplied URL (<url>)`, or `provenance: user-pasted (<url>)` if that fetch failed and
-the student pasted the text instead. The rest of this section — the shortlink chain immediately below,
-and everything from `company-context.md` onward — is unchanged and applies only to scan-sourced jobs.
+the student pasted the text instead. The shortlink chain immediately below — and the citation
+instruction that closes out this section — applies only to scan-sourced jobs; a URL-resolved job runs
+neither. Everything from `company-context.md` onward is unchanged and applies the same way regardless
+of which mode built this job.
 
 Source, in this order, and stop at the first that works:
 1. Resolve the job ID. The report entry doesn't carry an explicit job-ID field, and in practice the
@@ -305,6 +329,13 @@ report and entry number this job was resolved from in step 1. Both lines live in
 itself; nothing in this step edits `reports/*.md`, which stays exactly as `/scan-jobs` wrote it. This
 fetch does not count against the company-research budget below.
 
+**This "cite the source report and entry number" instruction is scan-sourced only** — it names a
+report entry, and a URL-resolved job doesn't have one to name. Don't improvise a substitute `source:`
+line for it. For a URL-resolved job, `job-post.md` carries only the provenance line already specified
+above (`provenance: user-supplied URL (<url>)` or `provenance: user-pasted (<url>)`) — that line
+already embeds the URL this job came from, so there's nothing left to cite and no report-and-entry-
+number line to add.
+
 ### 4.2 `company-context.md`
 
 ~5 fetches (`WebSearch` to find pages, `WebFetch` to actually read them; `get_company_data` if the
@@ -326,7 +357,19 @@ with generic filler. "Why this fits you" may draw on facts already gathered in t
 sections plus a comparison against `facts.md`/`profile.md`; it still needs a fetched-this-run URL
 behind any *new* factual claim about the company that appears only in that section.
 
-**This covers URLs that arrive inside a tool's response, not just ones found via `WebSearch`.**
+**There's a middle case between "cite it" and "leave it out": a claim seen in a `WebSearch` snippet
+but never fetched.** The rule above is binary — fetched-this-run gets a citation, nothing gets `Not
+found.` — and a real, plausible claim that only ever showed up in a search result doesn't fit either
+box: it's too specific to invent a citation for, and dropping a true claim just because nothing here
+licenses citing it throws away real signal. Don't hedge it into vague prose to paper over the gap
+either. Instead, state it plainly and mark it explicitly as unverified, with no citation attached —
+e.g. "unverified, from search results only: [claim]." The label carries the caveat instead of a URL.
+What's still off the table, unchanged, is writing it as though a source backed it: no link, no "per
+[company]," nothing that reads as checked when it wasn't. The hard rule above still stands — a
+fabricated citation is worse than none.
+
+**The fetched-this-run citation rule covers URLs that arrive inside a tool's response too, not just
+ones found via `WebSearch`.**
 `get_company_data` and similar connector calls return structured data that often includes a URL field
 (e.g. a company's Indeed profile link) — that URL reads as verified because it came back from a real
 tool call, but the tool call didn't *fetch* the page at that URL, it returned a record that happens to
@@ -340,6 +383,10 @@ nothing in this run actually fetched.
 Free-text tailoring of `resume.md`'s content against `facts.md`, aimed at this specific JD (from
 `job-post.md`). Draw only on facts that exist in the registry — this is a generator that writes new
 prose about the user's career from real material, not one that reshuffles existing bullets untouched.
+
+**This file contains the résumé, and nothing else** — no HTML comments, no working notes, because
+`honesty_lint.py` has no comment awareness and scans every line as résumé content, silently inflating
+the findings it reports.
 
 **Generation-time hard rule:** attribution may be **re-worded or generalized**, never **re-credited**.
 You may restate "coordinated the launch" as "drove the launch" only if `facts.md` actually backs
@@ -468,17 +515,36 @@ evidences**`) and the flag matches nothing, the lint call still exits 0, and the
 the honesty check has silently done nothing — no error loud enough to notice after the fact. Get the
 heading level and text exactly right the first time.
 
-1. **What this job asks for** — the JD's requirements, quoted from `job-post.md`. Not lint-checked —
-   these are the JD's words, not the user's claims.
-2. **What your record evidences** — each requirement measured **against `facts.md`**, never against
-   `tailored-resume.md`'s prose: *meet* / *partially evidence* / *no evidence*, citing the row(s).
+1. **What this job asks for** — the JD's requirements, quoted from `job-post.md`, each one **numbered**
+   as it's listed (`R1`, `R2`, `R3`, …). Not lint-checked — these are the JD's words, not the user's
+   claims. The numbering exists so section 2 can point back at a requirement without repeating it —
+   see below.
+2. **What your record evidences** — for each requirement, **reference its identifier from section 1
+   (`R1`, `R2`, …) — do not restate the requirement's text.** Measure it **against `facts.md`**, never
+   against `tailored-resume.md`'s prose: *meet* / *partially evidence* / *no evidence*, citing the
+   row(s), e.g. `R1 — meet (F4, F7)`.
    **This is deliberate and load-bearing — do not "simplify" it into checking the résumé instead.**
-   If this section audited the résumé's prose, a fabricated bridge in the résumé (say, "led the
-   redesign" where the registry only backs "contributed to") would make the résumé *appear* to
-   evidence the requirement, and the gap analysis would fall silent exactly where the user needs it
-   most. Measuring against the registry instead means that same fabricated bridge shows up as a
-   visible contradiction: the résumé claims it, the gap analysis says the registry doesn't back it.
-   This section's claims are in lint scope — see the step below, right after this file is written.
+   If this section audited the résumé's prose, a
+   fabricated bridge in the résumé (say, "led the redesign" where the registry only backs "contributed
+   to") would make the résumé *appear* to evidence the requirement, and the gap analysis would fall
+   silent exactly where the user needs it most. Measuring against the registry instead means that same
+   fabricated bridge shows up as a visible contradiction: the résumé claims it, the gap analysis says
+   the registry doesn't back it. This section's claims are in lint scope — see the step below, right
+   after this file is written.
+   **Referencing by identifier instead of restating is what keeps that lint scope clean, not just
+   tidy.** A requirement's own numbers ("2+ years...", "3+ years...") belong to the JD, not to the
+   user — but a natural write-up of this section restates the requirement to say whether it's met,
+   which drags the JD's numerals into the same lint-scoped section as the user's own claims. The lint
+   script can't tell a JD-derived "2" from a résumé-derived one; it flags both as unbacked numeric
+   claims. Early dry runs of this skill missed the bug because the JD's number happened to also appear
+   in the registry by coincidence (a "3+ years" requirement against a registry row reading "Managed 3
+   education programs") — any JD whose requirement numbers don't happen to reuse the registry's own
+   numbers throws false ERRORs on the JD's words, not the user's. Pointing at `R1` instead of quoting
+   "2+ years in a product, program, or operations role" removes the JD's language from this section
+   entirely, so the only numbers left in lint scope are the ones the user's own record adds — row
+   citations like `F4`/`F7` aren't numeric claims, they're identifiers, and citing rows inside this
+   section is already normal practice that the lint has never had trouble with. This also removes the
+   duplication of requirement text between sections 1 and 2 — a side benefit, not the point.
    **Keep any summary tally out of this section.** A line like "Tally: 1 meets, 5 partially evidence,
    7 no evidence" is meta-commentary about the analysis, not a claim about the user — but it lives
    inside the lint-scoped section, the script reads "1", "5", and "7" as unbacked numeric claims, and
@@ -510,8 +576,11 @@ Append the captured stdout to the `lint-report.md` written in 4.4 as a new secti
 ```
 
 Only "what your record evidences" is in scope here — the script itself is expected to skip the
-JD-derived "what this job asks for" section per `docs/apply-package-spec.md` §5.5. After this,
-`lint-report.md` covers both claim-bearing files in the package, matching the file table.
+JD-derived "what this job asks for" section per `docs/apply-package-spec.md` §5.5. The `--section`
+scoping is now a second line of defense rather than the only one: because section 2 references
+requirement IDs instead of restating the JD's own numbers (see section 2 above), there's no JD-derived
+numeral for the scoping to need to exclude in the first place. After this, `lint-report.md` covers both
+claim-bearing files in the package, matching the file table.
 
 ### 4.6 Seed `notes.md`
 
@@ -573,7 +642,9 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
    would ERROR on every quoted figure). Run whichever materials exist; skip a file that's absent.
    ```
    (`gap-analysis.md`'s "what this job asks for" section is JD-derived and stays out of lint scope;
-   only "what your record evidences" is in scope, matching `docs/apply-package-spec.md` §5.5.)
+   only "what your record evidences" is in scope, matching `docs/apply-package-spec.md` §5.5 — and
+   per 4.5, that section itself now carries no JD-derived numerals to begin with, so `--section` is
+   belt-and-suspenders here, not the only thing standing between the JD's numbers and a false ERROR.)
 4. Overwrite `lint-report.md` with the fresh ledger + findings, same structure as 4.4. This is **not**
    a rebuild — it doesn't touch any other file in the folder, and it never triggers the `-2` collision
    suffix.

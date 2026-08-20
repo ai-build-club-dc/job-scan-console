@@ -234,21 +234,28 @@ class TestOpenEndedMismatch(HonestyLintTestCase):
         )
 
 
-class TestValueOnlyBlindSpot(HonestyLintTestCase):
+class TestUnitBlindSpot(HonestyLintTestCase):
     """9-value-only-blindspot.md.
 
-    NOTE ON WHY THIS TEST IS NAMED "documents_current_blind_spot" AND NOT
-    "is_correctly_clean": row_has_number matches a claim to a registry row purely
-    by numeric VALUE, with no awareness of what the number is a count OF. This
-    fixture's claim ("regional partners") happens to carry the same bare figure as
-    facts.md row f3's tenure claim ("years of experience"), and the script reports
-    it as fully clean. That is not a correctness claim -- it is the script's
-    documented, current behavior, worth flagging on review. Encoded here as
-    observed behavior, not fixed. See the final report for a plainer statement of
-    this concern.
+    NOTE ON WHY THIS TEST IS NAMED "documents_unit_blind_spot" AND NOT
+    "is_correctly_clean": this fixture used to be read as evidence of the
+    source_text-widening bug (see TestSourceTextScopeRegression below, which is
+    the fix for that bug). It is not that bug: facts.md row f3's `value` field is
+    itself "5+" -- the match happens through `value`, not through source_text --
+    so scoping the matcher to `value` only (the fix applied to honesty_lint.py)
+    does NOT change this fixture's outcome. What remains is a narrower, still-live
+    limitation: row_has_number matches a claim to a registry row purely by numeric
+    VALUE, with no awareness of what the number is a count OF. This fixture's
+    claim ("regional partners") happens to carry the same bare figure as facts.md
+    row f3's tenure claim ("years of experience"), and the script reports it as
+    fully clean. That is not a correctness claim -- it is the script's documented,
+    current behavior, worth flagging on review, and intentionally NOT tightened
+    here: unit-aware matching is out of scope and would risk false-ERRORing
+    legitimately-backed claims like "5+ years" in 1-clean-resume.md. See the final
+    report for a plainer statement of this concern.
     """
 
-    def test_value_only_match_documents_current_blind_spot(self):
+    def test_unit_blind_spot_survives_the_value_only_fix(self):
         rc, out = run_lint("9-value-only-blindspot.md", registry="facts.md")
         self.assertEqual(rc, 0)
         self.assert_counts(out, 0, 0)
@@ -339,6 +346,52 @@ class TestGapAnalysisSection(HonestyLintTestCase):
         self.assertIn(
             '"$999,000,000" does not match any row in facts.md, of any kind.', out
         )
+
+
+class TestSourceTextScopeRegression(HonestyLintTestCase):
+    """13-source-text-scope-regression.md against facts-source-text-regression.md:
+    the exact false-CLEAN bug honesty_lint.py was fixed for. Both registry rows
+    quote the SAME source sentence, which -- being a verbatim résumé line --
+    names a programs-count figure neither row's `value` is actually about. Before
+    the fix (row_has_number scanning value + source_text), a claim using that
+    figure traced cleanly against either row purely because the digit rode along
+    inside the shared quoted sentence. That is a false CLEAN: no row is about
+    that many of anything, so a claim built on it should ERROR as zero-source,
+    not pass as verified."""
+
+    def test_number_only_in_shared_source_text_is_zero_source_error(self):
+        rc, out = run_lint(
+            "13-source-text-scope-regression.md",
+            registry="facts-source-text-regression.md",
+        )
+        self.assertEqual(rc, 0)
+        # 2 ERROR: the bug claim ("3") and the control ("9"). If either failed to
+        # ERROR, this test would catch it -- and the control means an always-ERROR
+        # matcher can't pass this test vacuously either.
+        self.assert_counts(out, 2, 0)
+        self.assertIn(
+            '**[check 7 · zero-source] ERROR** -- "3" does not match any row in '
+            "facts.md, of any kind.",
+            out,
+        )
+        self.assertIn(
+            '**[check 7 · zero-source] ERROR** -- "9" does not match any row in '
+            "facts.md, of any kind.",
+            out,
+        )
+
+    def test_registry_rows_are_still_live_through_their_own_values(self):
+        """Proves the fix isn't over-tight: g1 ("1,200 students annually") and g2
+        ("4 sites") must still trace cleanly when a claim uses THEIR OWN value,
+        not just the shared source_text -- 2 of the 4 numeric claims checked, and
+        neither figure appears as an ERROR/WARN finding anywhere in the report."""
+        rc, out = run_lint(
+            "13-source-text-scope-regression.md",
+            registry="facts-source-text-regression.md",
+        )
+        self.assertIn("_Checked: 4 numeric claim(s) (2 traced cleanly)", out)
+        self.assertNotIn('"1,200" does not match', out)
+        self.assertNotIn('"4" does not match', out)
 
 
 # --------------------------------------------------------------------------------------
