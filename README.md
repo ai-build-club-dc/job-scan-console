@@ -17,9 +17,27 @@ Scans run inside Claude sessions (or on a daily schedule you can ask Claude to s
 - Your **resume** as a PDF in your Claude-Workshop folder (Google Doc? Use File → Download → PDF — or connect the Google Drive connector and Claude can fetch it)
 - macOS with `python3` — serves the console locally, and runs the honesty lint that `/apply` depends on; a different static file server can still serve pages, but `python3` itself is now required, not optional
 
-## Quick start (recommended)
+## Fastest way
 
-Paste this one prompt into Claude:
+1. Make a new, empty folder for this
+2. Put your résumé PDF in it
+3. Open Claude Code in that folder
+4. Add the Indeed connector to your Claude account
+5. Paste this one message:
+
+```
+Please set up the Job Scan Console for me. Clone
+https://github.com/ai-build-club-dc/job-scan-console.git into this folder,
+then follow the setup instructions in its CLAUDE.md and onboard me step by
+step. I'm new to this, so explain what you're doing as you go and ask me
+one thing at a time. My résumé PDF is in this folder.
+```
+
+Claude takes it from there — cloning the repo, finding your résumé, and walking you through everything below one step at a time.
+
+## Quick start
+
+Already have a `Claude-Workshop` folder and just want a shorter prompt? Paste this one instead:
 
 > Download https://github.com/ai-build-club-dc/job-scan-console into my Claude-Workshop folder, then follow the setup instructions in job-scan-console/CLAUDE.md and onboard me.
 

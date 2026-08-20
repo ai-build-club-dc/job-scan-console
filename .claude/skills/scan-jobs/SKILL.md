@@ -20,6 +20,10 @@ Build the query set from the profile: one `search_jobs` query per (target title 
 ## 3. Merge and dedupe
 
 Combine all result sets. Dedupe by job ID — a title/location pair can return overlapping postings.
+Also treat two results as duplicates when their company, title, location, and compensation all
+match, even if their job IDs differ — the connector has been observed minting a fresh job ID per
+call for what is otherwise the identical posting, so an ID match alone is not a reliable signal and
+ID-only dedupe can leave the same listing in the report twice.
 
 ## 4. Score against the profile
 

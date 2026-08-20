@@ -42,7 +42,7 @@ Reject postings older than ⟨48⟩ hours at scan time.
 
 ## Scoring rubric
 
-Fit score = title match (0–4) + substance (0–4) + logistics (0–2), integer sum out of 10. Survival threshold: ≥6/10. In each report entry, keep the `**Fit:** N/10` line format unchanged and append the component breakdown to the "Why" line, e.g. "(title 4 · substance 3 · logistics 2)".
+Fit score = title match (0–4) + substance (0–4) + logistics (0–2), integer sum out of 10. Survival threshold: ≥6/10. In each report entry, keep the `**Fit:** N/10` line format unchanged; the component breakdown goes in its own `**Score:**` block (three bullets — Title/Substance/Logistics, each with its points and a one-line reason), per `/scan-jobs` SKILL.md step 8 — not appended to the "Why" line.
 
 ### Title match (0–4)
 

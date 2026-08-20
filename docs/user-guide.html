@@ -258,6 +258,21 @@
     vertical-align: bottom;
   }
 
+  .code-block {
+    display: block;
+    background: #111827;
+    color: #f9fafb;
+    padding: 12px 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 8px 0;
+  }
+
   .tag {
     background: var(--indigo-light);
     color: var(--indigo-dark);
@@ -450,6 +465,12 @@
         <span class="stage-badge-inline">Setup</span>
         <div class="row"><span class="label">You do</span> Ask Claude: <code class="chip">Onboard me</code> (have your résumé PDF nearby)</div>
         <p class="hint">This starts a guided conversation — Claude reads your résumé and asks you questions, so you don't have to know what to type next.</p>
+        <p class="hint">Starting from scratch? Make a folder, put your résumé PDF in it, open Claude Code there, add the Indeed connector — or paste this one message and Claude does the whole setup:</p>
+        <pre class="code-block">Please set up the Job Scan Console for me. Clone
+https://github.com/ai-build-club-dc/job-scan-console.git into this folder,
+then follow the setup instructions in its CLAUDE.md and onboard me step by
+step. I'm new to this, so explain what you're doing as you go and ask me
+one thing at a time. My résumé PDF is in this folder.</pre>
         <div class="row"><span class="label">You get</span> <span class="tag">resume.md</span> your résumé as text</div>
       </div>
     </li>
