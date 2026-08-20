@@ -4,4 +4,5 @@ reports/*
 !reports/.gitkeep
 applications/
 resume*
+facts.md
 .DS_Store

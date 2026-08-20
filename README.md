@@ -15,7 +15,7 @@ Scans run inside Claude sessions (or on a daily schedule you can ask Claude to s
 - **Claude desktop app** with a connected folder (these instructions assume it's called `Claude-Workshop`)
 - **Indeed connector** enabled on your Claude account — this is what `/scan-jobs` searches with
 - Your **resume** as a PDF in your Claude-Workshop folder (Google Doc? Use File → Download → PDF — or connect the Google Drive connector and Claude can fetch it)
-- macOS with `python3` (only used to serve the console locally; any static file server works)
+- macOS with `python3` — serves the console locally, and runs the honesty lint that `/apply` depends on; a different static file server can still serve pages, but `python3` itself is now required, not optional
 
 ## Quick start (recommended)
 
@@ -26,10 +26,11 @@ Paste this one prompt into Claude:
 Claude will then, with you in the loop:
 
 1. Find your resume and create `resume.md` — a machine-readable copy used for everything afterward
-2. Interview you: target titles, location, salary floor, job type, dealbreakers
-3. Write **your** `profile.md`, including a scoring rubric personalized to your background
-4. Start the console at http://localhost:8642/console/
-5. Offer your first `/scan-jobs` run — and an optional automatic daily scan
+2. Build your fact registry, `facts.md`, from `resume.md`, have you confirm it, then ask a few questions about wins that never made it onto your résumé
+3. Interview you: target titles, location, salary floor, job type, dealbreakers
+4. Write **your** `profile.md`, including a scoring rubric personalized to your background
+5. Start the console at http://localhost:8642/console/
+6. Offer your first `/scan-jobs` run — and an optional automatic daily scan
 
 ## Manual setup
 
@@ -41,6 +42,7 @@ Claude will then, with you in the loop:
 | You want | Do |
 |---|---|
 | A fresh scan | Ask Claude: `/scan-jobs` |
+| Build an application package for a job | Ask Claude: `/apply <company or role>` — nothing is written until you approve the manifest it prints |
 | Change criteria | Ask Claude: *"raise my salary floor to $95K"* (edits `profile.md`; console updates on refresh) |
 | Automatic daily scans | Ask Claude: *"schedule a daily morning job scan"* |
 | See results | http://localhost:8642/console/ → Refresh after a scan lands |
@@ -56,12 +58,15 @@ Claude will then, with you in the loop:
 | `CLAUDE.md` | Instructions your Claude follows to onboard you and run the system |
 | `spec.md` | Design spec — how scanning, scoring, and reports work |
 | `reports/` | Your scan reports land here (gitignored) |
+| `.claude/skills/apply/` | The `/apply` skill — builds a per-job application package |
+| `scripts/honesty_lint.py` | Passive checker `/apply` runs over tailored résumés — reports, never blocks |
+| `applications/` | Your `/apply` packages land here (gitignored) |
 
-Your personal files — `profile.md`, `resume*`, `reports/*`, `applications/` — are **gitignored**: they can't be committed or pushed, by you or anyone.
+Your personal files — `profile.md`, `facts.md`, `resume*`, `reports/*`, `applications/` — are **gitignored**: they can't be committed or pushed, by you or anyone.
 
 ## Updating
 
-Ask Claude: *"pull the latest job-scan-console"*. Your profile and reports are untouched by updates.
+Ask Claude: *"pull the latest job-scan-console"*. Your profile, registry, reports, and application packages are untouched by updates.
 
 ---
 
