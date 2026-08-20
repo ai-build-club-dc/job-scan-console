@@ -106,41 +106,26 @@ resolved in step 1 — the registry isn't job-specific.
 
 **If `facts.md` already exists**, skip to step 3.
 
-**If it's missing** (pre-v0.8 user who onboarded before this feature existed):
+**If it's missing**, don't stop — this covers two different users the same way: a pre-v0.8 user who
+onboarded before this feature existed, and a user who deliberately deferred the registry step during
+onboarding (per `CLAUDE.md` step 3's deferral path). Either way, enter **deferred mode**: no interview
+runs here, no `facts.md` gets written, and the build proceeds without a registry. Say so plainly,
+before the manifest in step 3, so the user knows what's about to happen and why the manifest below
+looks different from a normal build: *"No fact registry yet, so this build will run in deferred mode —
+the tailored résumé will be UNVERIFIED (no tracer, no lint, no gap analysis) until you finish it. Say
+'finish my registry' any time to complete it and unlock a verified rebuild."* Deferred mode changes
+step 3's manifest content (below), skips 4.4 and 4.5 entirely, and adds a `registry: deferred` key to
+4.6's `notes.md` — each is called out at the relevant point below. Everything else in this skill runs
+unchanged.
 
-1. Tell the user you don't see a fact registry yet and you'll build one now, before building anything
-   else — this has to happen first because part of it is an interview, and starting an interview
-   after they've already approved a manifest breaks the "approve, then build" contract.
-2. If `facts.md` is not already listed in `.gitignore`, add the line before writing anything to it —
-   this file will hold personal career data.
-3. Read `resume.md`. Extract every number, title, date range, and credential into candidate rows:
-   `id` (`F1`, `F2`, …), `kind` (`metric` / `title` / `date` / `credential` / `deliverable`), `value`
-   (the extracted fact), `source_text` (the **verbatim** line or sentence from `resume.md` it came
-   from — copy it exactly, don't paraphrase), `provenance` (`résumé`).
-4. Show the user the full extracted table and ask them to confirm it. Because `source_text` is a
-   verbatim quote, this is a diff against their own document, not a comprehension test — they're
-   checking "did you copy this right," not "is this true." Fix anything they flag before writing.
-5. Write the confirmed rows to `facts.md` at the repo root as a markdown table:
-   `| id | kind | value | source_text | provenance |`.
-6. **Reservoir questions — skippable.** Ask 3–4 questions aimed at accomplishments that aren't on the
-   résumé: *"What have you shipped, fixed, or led that isn't written down here? Anything from before
-   this résumé, or too small to have made the cut?"* This matters most for career-changers, whose
-   résumés are written for the field they're leaving and systematically omit transferable evidence.
-   If the user wants to skip this, that's fine — say plainly that `facts.md` will be résumé-only for
-   now (every row `provenance: résumé`), and that they can add reservoir facts later by asking to
-   re-run this step.
-   - For each reservoir answer, append a row: `kind` from context, `value` the fact, `source_text`
-     empty (nothing to quote — it was typed into chat, not extracted from a document), `provenance:
-     self-reported`.
-   - **One-time attestation offer.** For each self-reported row just captured, ask: *"Do you stand
-     behind that and could defend it in an interview? If so I'll mark it attested — otherwise it'll
-     show up as a WARN (not an error) wherever it's used, just as a reminder."* If yes, set
-     `provenance: attested` instead of `self-reported`. This is per-fact and happens once; it exists
-     so a thin registry doesn't turn every future lint into a wall of ignorable WARNs.
-7. **Thin registry.** If extraction produced very few quantified facts (metrics, dated ranges,
-   credentials) and the reservoir was skipped or came back sparse, say so now, before the manifest:
-   tailoring will have little to draw on, and the résumé will mostly restate what's already there.
-   Better to set that expectation than let the writer invent its way to a fuller page.
+**If the user, on hearing this, asks to build the registry now instead of deferring** — don't run an
+interview inline here. Registry-building has exactly one home, `CLAUDE.md` step 3 (the same flow a
+"finish my registry" request runs later): tell the user you'll switch to that now, before building
+anything else here, run it as written there, and only return to this `/apply` invocation — starting
+over at this step, now with `facts.md` present — once it's done. Don't duplicate step 3's interview,
+extraction rules, or thin-registry wording here; a second copy of that flow drifts from the original
+the first time either one is edited, and this skill has exactly one job at this step: notice the
+registry is missing and say what deferring costs.
 
 ## 3. The manifest gate
 
@@ -179,6 +164,30 @@ The `Total:` line is never optional, batch or not — see below.
 Always include that total line — for a real batch it's the whole point of the gate: a ten-job batch
 is ~50 research fetches and ten tracer subagents under one approval, and the per-job lines
 shouldn't make the user do that arithmetic themselves.
+
+**Deferred mode.** If step 2 found no `facts.md`, every job's manifest entry has to disclose that —
+the gate stays honest about what the tokens buy, and a registry-less build buys something visibly
+smaller than a normal one:
+
+```
+1. Acme Corp — Senior Product Manager        Fit 8/10   (reports/2026-08-10-1400.md)
+   → applications/Acme-Corp-Senior-Product-Manager/
+   ⚠ tailored résumé will be UNVERIFIED (no fact registry — no tracer, no lint, no gap analysis)
+   Files: job-post.md, company-context.md, tailored-resume.md, notes.md
+   Research budget: ~5 fetches (company-context.md) + 1 job-post fetch (not counted)
+
+Total: 1 job, ~5 research fetches, 0 tracer subagents (deferred mode — no fact registry).
+
+Reply "go" to build it.
+```
+
+The Files line itself shrinks in deferred mode: `lint-report.md` and `gap-analysis.md` never get
+written, because both are honesty-check outputs with nothing to check against, and listing them as
+pending would promise a file this build never produces. The Research budget line drops the tracer
+subagent for the same reason. Everything else about the gate — one reply, nothing runs before it
+arrives, the `Total:` line always present — applies exactly as it does for a normal build. This
+disclosure applies per job, so a batch built in deferred mode shows the `⚠` line on every entry, not
+just the first.
 
 **Resuming an `INCOMPLETE` folder.** Mark each file in the Files line `✓ (reused)` if it already
 exists or `(to build)` if it doesn't, instead of listing them all as pending, and shrink the Research
@@ -247,6 +256,11 @@ Do the following **in this exact order** for each job that wasn't skipped:
 seed `notes.md`. The résumé is built before the gap analysis on purpose — the gap analysis reports on
 a finished package instead of steering it, so it reads as advice to the user, not as generator
 machinery talking to itself.
+
+**In deferred mode, the chain is shorter:** `job-post.md` → `company-context.md` →
+`tailored-resume.md` → seed `notes.md`. Tracer + lint (4.4) and `gap-analysis.md` (4.5) don't run at
+all — both check claims against `facts.md`, and there is no `facts.md` to check against. Each of those
+two steps says so in one line at the point it would otherwise run, rather than being silently absent.
 
 **Slug.** `<Company>-<Full-Role-Title>`: the company name and the job's title (from step 1), each
 proper-cased, spaces and punctuation replaced with single hyphens (e.g. `Humana-Lead-AI-Technical-Product-Manager`).
@@ -393,12 +407,24 @@ Free-text tailoring of `resume.md`'s content against `facts.md`, aimed at this s
 `job-post.md`). Draw only on facts that exist in the registry — this is a generator that writes new
 prose about the user's career from real material, not one that reshuffles existing bullets untouched.
 
+**Deferred mode.** There is no `facts.md` to tailor against, so draft directly from `resume.md`
+instead — same JD-aware tailoring, just without a registry to check claims against as they're written.
+The file **must open** with this banner block, exact text, before anything else in the file:
+
+> **⚠ UNVERIFIED — no fact registry existed when this was written.** No claim in this file has been checked by the tracer or the lint. Complete your fact registry (ask: "finish my registry") and request a re-lint before sending this anywhere.
+
+The rest of this section — the `declined`-row rule, the no-comments rule, the re-wording-not-recrediting
+rule — describes registry-checked tailoring and doesn't apply to a deferred-mode draft the same way
+(there's no registry to re-credit against), but keep the same restraint in spirit: don't invent
+credentials, metrics, or outcomes `resume.md` doesn't support.
+
 **Rows with `provenance: declined` are off-limits.** The user explicitly declined to stand behind
 them — they are never used, never paraphrased, and never implied, even loosely or in passing. Treat
 a `declined` row as absent from the registry for the purposes of this section, not merely as a weaker
 source than `self-reported`.
 
-**This file contains the résumé, and nothing else** — no HTML comments, no working notes, because
+**This file contains the résumé, and nothing else** (the deferred-mode banner above is the one
+exception — it's meant to be read, not stripped) — no HTML comments, no working notes, because
 `honesty_lint.py` has no comment awareness and scans every line as résumé content, silently inflating
 the findings it reports.
 
@@ -409,6 +435,9 @@ the JD's language makes that framing obviously more persuasive. This is the one 
 4.4 exists to catch violations of — treat it as load-bearing, not stylistic advice.
 
 ### 4.4 Tracer + lint → `lint-report.md`
+
+**Deferred mode: skipped.** There is no `facts.md` for the tracer or the script to check claims
+against, so this step does not run and no `lint-report.md` is written for this job.
 
 This is the honesty check, and it has two independent parts that both have to land in the same file.
 
@@ -511,6 +540,9 @@ it doesn't exist yet at this point in the build order — 4.5 appends its findin
 below.
 
 ### 4.5 `gap-analysis.md`
+
+**Deferred mode: skipped.** Section 2 of this file measures the résumé against `facts.md`; with no
+registry there's nothing to measure against, so this file does not get written for this job.
 
 Three sections, in this order. **Each one must be rendered as a `##` ATX heading, with exactly this
 text** — not a numbered list item, not bold prose standing alone, not a `###`:
@@ -633,6 +665,21 @@ folder_created: <YYYY-MM-DD>
 status: built
 ```
 
+**Deferred mode adds one more key.** Append `registry: deferred` to the header block (either shape
+above) — it's what marks this package as a candidate for the re-lint in step 5 once `facts.md` exists,
+and it's the header this skill checks for when the user asks to finish their registry and clean up
+banners:
+
+```markdown
+company: <Company>
+role: <Role>
+source_report: reports/<file>.md
+fit: <N>/10
+folder_created: <YYYY-MM-DD>
+status: built
+registry: deferred
+```
+
 ## 5. Re-lint (standalone)
 
 A user who edits `tailored-resume.md` after reading the ledger needs to re-verify it without
@@ -684,6 +731,29 @@ existing application folder (e.g. "relint Acme," "re-check the Globex package").
    after it) applies to a standalone re-lint's report exactly as it does to a fresh build — say it
    here too, not only after §4's builds.
 
+**A package marked `registry: deferred`.** No `lint-report.md` and no `gap-analysis.md` were ever
+written for this package — deferred-mode builds skip 4.4 and 4.5 entirely (see §4's build order note).
+Once `facts.md` exists, completing the registry unlocks running both for the **first** time, not
+refreshing them. Trigger this the same way as any re-lint above — the user asking to re-check,
+re-lint, or "finish my registry," including the offer `CLAUDE.md`'s registry-completion flow makes to
+re-lint every `registry: deferred` package once `facts.md` is written:
+
+1. Skip step 2 above — there's no prior ledger to snapshot, since nothing was written the first time.
+2. Run the tracer (4.4) on the current `tailored-resume.md` + the now-existing `facts.md` — one fresh
+   subagent, same prompt.
+3. Build `gap-analysis.md` in full, per 4.5 — it was never built at build time, so this is its first
+   appearance, not an overwrite.
+4. Run both lint invocations (the `tailored-resume.md` pass and the `gap-analysis.md --section`
+   pass, per 4.4 and 4.5) and write `lint-report.md` for the first time, same structure as 4.4,
+   covering both files.
+5. **On completion:** remove the banner block from the top of `tailored-resume.md` (the exact block
+   4.3 specifies) and remove the `registry: deferred` key from `notes.md`'s header — this is the
+   moment this package stops being unverified.
+6. Report findings the same way any re-lint does (step 6 above): ERROR/WARN counts, the ledger's NO
+   SOURCE count, notable findings. There's no "before" snapshot to diff against for the flip-reporting
+   language in step 6, since this is a first pass, not a second one — skip that part and report the
+   fresh findings plainly.
+
 ## 6. Wrap-up
 
 After a build (or a batch), report per job:
@@ -699,20 +769,40 @@ console — the console reads `applications/` zero times, only `reports/`. The p
 `applications/<slug>/`. Say this plainly and every time; a student who isn't told will assume the
 build failed rather than succeeded somewhere the console simply doesn't look.
 
-Then say, plainly, once per session rather than per job: **passing the lint and the tracer is not the
-same as a claim being true** — both check traceability to `facts.md`, not whether the underlying
-fact is accurately represented or whether the user can defend it. Add, in the same breath: **the
-claims ledger is one sample of a model's judgment, not a verdict** — a single tracer pass has been
-observed certifying a re-credited claim ("end-to-end ownership" of work the registry backs only as
-fragments) that a second pass on the same material caught as NO SOURCE, and a later run saw the same
-instability split three ways across three passes on a different claim. This skill used to run three
-tracers per job and combine their NO SOURCE sets by union specifically to catch that instability
-before the user ever saw it; that costs roughly 50k tokens per subagent spawn — ~150k per job, ~1M
-across a ten-job batch — and it's been reverted to a single pass on the reasoning that the user reads
-the tailored résumé line by line anyway. That reasoning only holds if the reading actually happens:
-with one pass, the user's own review is the mitigation, not a backstop behind one. Encourage them to
-read `lint-report.md` and `gap-analysis.md` line by line, not skim the counts, and cut anything they
-can't say out loud in an interview before they send the package.
+**For a job built in deferred mode**, the per-job bullets above shrink to just "files written" — there
+is no claims ledger, no lint counts, and no gap-analysis section 2 to report, because none of those
+three files exist for this job.
+
+**The lint/tracer caveat below only applies to jobs where the lint and tracer actually ran.** If
+*every* job in this build (or batch) was built in deferred mode, skip the whole paragraph below —
+telling a user "passing the lint and the tracer is not the same as a claim being true" about a build
+where neither ever ran doesn't caveat anything real, it reads as though a check happened when it
+didn't. In that all-deferred case, go straight from the per-job bullets to the deferred nudge below,
+once per job, and that nudge is the last thing said. If the batch is **mixed** — some jobs built
+normally, some deferred — say the caveat paragraph once per session as usual (it's true and relevant
+for the non-deferred jobs), then close with the deferred nudge for each deferred job.
+
+Say, plainly, once per session rather than per job (skip this paragraph entirely if every job in this
+build was deferred — see above): **passing the lint and the tracer is not the same as a claim being
+true** — both check traceability to `facts.md`, not whether the underlying fact is accurately
+represented or whether the user can defend it. Add, in the same breath: **the claims ledger is one
+sample of a model's judgment, not a verdict** — a single tracer pass has been observed certifying a
+re-credited claim ("end-to-end ownership" of work the registry backs only as fragments) that a second
+pass on the same material caught as NO SOURCE, and a later run saw the same instability split three
+ways across three passes on a different claim. This skill used to run three tracers per job and
+combine their NO SOURCE sets by union specifically to catch that instability before the user ever saw
+it; that costs roughly 50k tokens per subagent spawn — ~150k per job, ~1M across a ten-job batch — and
+it's been reverted to a single pass on the reasoning that the user reads the tailored résumé line by
+line anyway. That reasoning only holds if the reading actually happens: with one pass, the user's own
+review is the mitigation, not a backstop behind one. Encourage them to read `lint-report.md` and
+`gap-analysis.md` line by line, not skim the counts, and cut anything they can't say out loud in an
+interview before they send the package.
+
+**End with the deferred nudge, per deferred job, last.** For each job built in deferred mode, close
+its report with this line, once per job (not once per session — each deferred job's résumé is
+unverified on its own, and the reminder belongs with the job it applies to), and make it the final
+thing said about that job: *"Your fact registry is still pending — finishing it unlocks a verified
+résumé, the honesty check, and the gap analysis. Say 'finish my registry' any time."*
 
 ## Out of scope
 

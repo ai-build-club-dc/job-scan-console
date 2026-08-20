@@ -112,6 +112,10 @@
   .fatal-banner code{background:#fff;border:1px solid var(--warning-border);border-radius:4px;padding:1px 6px;font-size:12px;}
   .warn-banner{background:var(--warning-subtle);border:1px solid var(--warning-border);color:#92400e;padding:10px 14px;border-radius:7px;font-size:12.5px;margin-bottom:14px;}
   .notice-banner{background:var(--accent-subtle);border:1px solid var(--accent-border);color:var(--accent-hover);padding:10px 14px;border-radius:7px;font-size:12.5px;margin-bottom:14px;}
+  .registry-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:0;}
+  .registry-banner code{background:#fff;border:1px solid var(--warning-border);border-radius:4px;padding:1px 6px;font-size:12px;}
+  .registry-banner-close{flex-shrink:0;font-size:16px;line-height:1;color:inherit;opacity:.6;padding:2px 4px;}
+  .registry-banner-close:hover{opacity:1;}
   .empty-state{font-size:13px;color:var(--text-tertiary);padding:28px 0;text-align:center;}
   .readonly-note{font-size:12px;color:var(--text-tertiary);background:var(--bg);border-left:2px solid var(--border-strong);padding:8px 12px;border-radius:4px;margin-bottom:18px;}
   .readonly-note code{font-size:11.5px;}
@@ -366,6 +370,11 @@
         </ol>
       </section>
 
+      <div class="warn-banner registry-banner" id="registryBanner" hidden>
+        <span>Fact registry pending &mdash; tailored r&eacute;sum&eacute;s are unverified until it&rsquo;s done. In a Claude session, say: <code>finish my registry</code></span>
+        <button type="button" class="registry-banner-close" id="registryBannerClose" aria-label="Dismiss">&times;</button>
+      </div>
+
       <div class="grid-2col">
         <section id="profile" class="card">
           <div class="section-head">
@@ -506,7 +515,7 @@
   </main>
 </div>
 
-<div class="mockup-badge">Console v0.9</div>
+<div class="mockup-badge">Console v0.9.1</div>
 
 <script>
   /* ---------- generic helpers ---------- */
@@ -1314,6 +1323,8 @@
   const boardsSection = document.getElementById('boards');
   const reportsSection = document.getElementById('reports');
   const queueSection = document.getElementById('queue');
+  const registryBanner = document.getElementById('registryBanner');
+  const registryBannerClose = document.getElementById('registryBannerClose');
 
   // Toggles between the normal dashboard (profile/boards/reports/queue) and the first-run
   // "get started" panel. Both directions are handled so a profile.md that appears after
@@ -1327,6 +1338,28 @@
     queueSection.hidden = show;
   }
 
+  // "Dismissable-per-load": a plain in-memory flag, never persisted (no localStorage). A user
+  // who dismisses the banner won't see it again until they actually reload the page -- clicking
+  // the app's own Refresh button re-runs this check but does not reset the flag, since dismissing
+  // it once per session is the point.
+  let registryBannerDismissed = false;
+
+  // Checks whether a fact registry exists. Only meaningful once profile.md has loaded
+  // successfully -- in welcome mode (no profile.md yet) the registry question doesn't apply yet,
+  // so the caller is responsible for hiding this banner in that case rather than calling in.
+  async function checkFactsRegistry(){
+    if(registryBannerDismissed){ registryBanner.hidden = true; return; }
+    try{
+      const res = await fetch('/facts.md', {cache: 'no-store'});
+      // Only a 404 (facts.md genuinely absent) shows the strip -- a 403/500/etc. is a server
+      // problem, not evidence the registry is missing, so it stays hidden rather than guessing.
+      registryBanner.hidden = res.status !== 404;
+    } catch(e){
+      // Network hiccup fetching facts.md shouldn't itself surface as a banner -- leave it hidden.
+      registryBanner.hidden = true;
+    }
+  }
+
   // Single place that interprets a loadProfile() outcome: 404 means profile.md hasn't been
   // created yet (show the get-started panel), any other failure keeps the pre-existing
   // profileError notice, and success shows the dashboard as normal.
@@ -1335,7 +1368,9 @@
       await loadProfile();
       profileError.hidden = true;
       showGetStarted(false);
+      await checkFactsRegistry();
     } catch(e){
+      registryBanner.hidden = true;
       if(e && e.status === 404){
         showGetStarted(true);
         profileError.hidden = true;
@@ -1371,6 +1406,13 @@
       runPopover.hidden = true;
     });
     document.addEventListener('keydown', e => { if(e.key === 'Escape') runPopover.hidden = true; });
+  }
+
+  function wireRegistryBanner(){
+    registryBannerClose.addEventListener('click', () => {
+      registryBannerDismissed = true;
+      registryBanner.hidden = true;
+    });
   }
 
   async function handleRefresh(){
@@ -1411,6 +1453,7 @@
   async function init(){
     wireNav();
     wirePopover();
+    wireRegistryBanner();
     wireRubricToggle();
     wireCopyPrompt();
     wireSortHeaders();
