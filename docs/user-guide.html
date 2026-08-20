@@ -230,6 +230,7 @@
     margin-bottom: 6px;
     min-width: 0;
   }
+  .row.note { font-size: 13px; color: #64748b; font-style: italic; }
 
   .row:last-of-type {
     margin-bottom: 0;
@@ -481,6 +482,7 @@ one thing at a time. My résumé PDF is in this folder.</pre>
         <span class="stage-badge-inline">Setup</span>
         <div class="row"><span class="label">You do</span> Confirm your career facts and answer a few questions</div>
         <div class="row"><span class="label">You get</span> <span class="tag">facts.md</span> every claim with its source — this powers the honesty checks</div>
+        <div class="row note">In a hurry? You can say "I'll do this later" and keep going — scanning works fully, but résumés stay marked unverified until you come back and say <em>"finish my registry."</em></div>
       </div>
     </li>
 
@@ -693,6 +695,14 @@ one thing at a time. My résumé PDF is in this folder.</pre>
       <div class="situation-body">
         <p><span class="see-label">What you'll see</span>A lettered list of options — Claude never guesses when things are ambiguous.</p>
         <p><span class="do-label">What to do</span>Pick from the list; the recommended one is marked for you.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>You skipped the career-facts step and now résumés say UNVERIFIED</summary>
+      <div class="situation-body">
+        <p><span class="see-label">What you'll see</span>A banner on each tailored résumé and a strip in the console — because nothing existed to check your claims against, the honesty checks couldn't run.</p>
+        <p><span class="do-label">What to do</span>Say <em>"finish my registry"</em> in a Claude session. It runs the facts step you skipped, then offers to verify every résumé you built in the meantime — that's when the banners come off.</p>
       </div>
     </details>
 
