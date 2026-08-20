@@ -435,6 +435,20 @@ class TestTwoDigitCitationRegression(HonestyLintTestCase):
         )
 
 
+class TestDeclinedProvenance(HonestyLintTestCase):
+    """15-declined-row.md against facts-declined.md: a claim tracing ONLY to a
+    row the user explicitly declined to stand behind at attestation is a hard
+    ERROR (disavowed), not a WARN -- worse than untraceable, because the user
+    was asked and said no. A résumé-backed number on the same line stays clean."""
+
+    def test_declined_row_is_error_not_warn(self):
+        rc, out = run_lint("15-declined-row.md", registry="facts-declined.md")
+        self.assertEqual(rc, 0)
+        self.assert_counts(out, 1, 0)
+        self.assertIn("DECLINED to stand behind", out)
+        self.assertIn("(1 traced cleanly)", out)  # the résumé-backed "12" stays clean
+
+
 # --------------------------------------------------------------------------------------
 # 2. The LLM credential regression, and its neighboring degree patterns
 # --------------------------------------------------------------------------------------

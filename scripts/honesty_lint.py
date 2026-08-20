@@ -115,6 +115,8 @@ def normalize_provenance(raw):
         return "attested"
     if v in ("self-reported", "self reported", "self_reported"):
         return "self-reported"
+    if v in ("declined",):
+        return "declined"
     # Anything else (blank, misspelled, garbled) is treated as self-reported too --
     # the conservative default when we can't confirm a paper trail exists.
     return "self-reported"
@@ -340,7 +342,9 @@ def is_probable_calendar_year(token, value):
 
 
 def best_provenance(rows):
-    """Given rows that all matched the same claim, decide clean vs. WARN. If ANY
+    """Given rows that all matched the same claim, decide clean vs. WARN vs. declined
+    (ERROR: the user explicitly disavowed the fact at attestation, so a claim tracing
+    only to a declined row is worse than untraceable -- it is disavowed). If ANY
     matching row carries a paper trail (résumé/attested), the claim is clean --
     it doesn't matter that some *other* row for the same figure is self-reported.
     Only WARN when every match is self-reported. Picking the first match instead of
@@ -350,6 +354,9 @@ def best_provenance(rows):
     for r in rows:
         if r.provenance in ("résumé", "attested"):
             return "clean", r
+    for r in rows:
+        if r.provenance == "declined":
+            return "declined", r
     return "warn", rows[0]
 
 
@@ -786,6 +793,17 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
                 status, row = best_provenance(matches)
                 if status == "clean":
                     stats.dates_clean += 1
+                elif status == "declined":
+                    record(
+                        findings_map,
+                        "ERROR",
+                        "dates",
+                        f'Date range "{m.group(0)}" traces ONLY to facts.md row {row.id}, '
+                        "which the user explicitly DECLINED to stand behind at "
+                        "attestation -- a disavowed fact must not appear at all.",
+                        i,
+                        line.strip(),
+                    )
                 else:
                     record(
                         findings_map,
@@ -835,6 +853,17 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
                 status, row = best_provenance(matches)
                 if status == "clean":
                     stats.credentials_clean += 1
+                elif status == "declined":
+                    record(
+                        findings_map,
+                        "ERROR",
+                        "credentials",
+                        f'Credential "{mention}" traces ONLY to facts.md row {row.id}, '
+                        "which the user explicitly DECLINED to stand behind at "
+                        "attestation -- a disavowed fact must not appear at all.",
+                        i,
+                        line.strip(),
+                    )
                 else:
                     record(
                         findings_map,
@@ -877,6 +906,17 @@ def lint_material(path, metric_rows, date_rows, credential_rows, all_rows, secti
                 status, row = best_provenance(metric_matches)
                 if status == "clean":
                     stats.metrics_clean += 1
+                elif status == "declined":
+                    record(
+                        findings_map,
+                        "ERROR",
+                        "metrics",
+                        f'"{token}" traces ONLY to facts.md row {row.id}, '
+                        "which the user explicitly DECLINED to stand behind at "
+                        "attestation -- a disavowed fact must not appear at all.",
+                        i,
+                        line.strip(),
+                    )
                 else:
                     record(
                         findings_map,
