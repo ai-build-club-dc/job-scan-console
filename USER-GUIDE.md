@@ -94,6 +94,21 @@ After your first scan, Claude will offer to record a few real results as **Calib
 
 Once you've found a job worth pursuing — in the console, or in a report Claude showed you in chat — ask Claude: `/apply <company name>` (add the role too if that company has more than one posting across your reports).
 
+### Applying to a job you found yourself
+
+Found something outside a scan entirely — on LinkedIn, a company's careers page, Greenhouse, a link a friend sent you — and want a package for it anyway? Paste the link straight into `/apply`:
+
+    /apply https://boards.greenhouse.io/acme/jobs/12345
+
+One URL at a time: `/apply` can't take more than one link in a message, and it can't mix a pasted URL with company names. If you've got several jobs in mind, run `/apply` again for each one.
+
+A job that arrives this way is different in two ways worth knowing before you build it:
+
+- **No fit score.** Nothing has scored this job against your rubric, so instead of a number out of 10, the manifest and every file in the package show `unscored`. That number is normally your early warning — it's what tells you whether a job is worth the effort *before* you spend it. With a pasted URL, that signal just isn't there; the closest thing you get back is `gap-analysis.md`, and that only arrives at the very end, after the package is already built. (The manifest reflects this too: instead of naming which report the job came from, it shows the link you pasted.)
+- **It will not show up in your console.** The console only reads `reports/`, and a URL-sourced job is never written there — the whole package lives in `applications/<company>-<role>/` instead. If you go looking for it on your dashboard afterward and don't find it, that's expected, not a sign the build failed.
+
+If the link doesn't fetch cleanly — a login wall, a dead link, a site that blocks automated reads — see the troubleshooting table below; it's handled differently for a pasted URL than for a scan-sourced job. Past that, everything else about `/apply` works the same from here: the manifest, the `go` reply, the six files it builds.
+
 Claude first prints a **manifest**: the company, role, fit score, which report it came from, the files it's about to write, where they'll land, and roughly how many web pages it plans to fetch for company research. **Nothing is created until you reply.** Say `go` to build it, or, if you're doing several at once, `go, skip <company>` to leave one out. If you ask Claude to "process my queue," it'll tell you plainly that it can't see the console's Queue panel — that list only lives in your browser — and show you a numbered list to pick from instead, rather than guessing which jobs you meant.
 
 Once you say go, Claude builds a folder — `applications/<Company>-<Role-Title>/` — with six files:
@@ -156,7 +171,8 @@ Scheduled runs follow the same rule as manual ones: they never invent results. I
 | `/apply` says it can't find `facts.md` | Normal the first time you run it if you onboarded before this feature existed — Claude will offer to build the registry from `resume.md` on the spot, before showing you the manifest |
 | `/apply` asks which report or job you meant | Normal when a company name matches more than once — name the specific role, or the report date, and it'll narrow it down |
 | `lint-report.md` has `NO SOURCE` or ERROR rows | Not a crash — read "What passing the check doesn't mean" above, then check that claim against `facts.md` and your own memory before you send anything |
-| A job posting is behind a login or the link is dead | `/apply` still builds `job-post.md` from the report summary alone and marks it "degraded" — the job description content will be thinner than usual |
+| A job **from a report** is behind a login or the link is dead | `/apply` still builds `job-post.md` from the report summary alone and marks it "degraded" — the job description content will be thinner than usual |
+| A **pasted URL** is behind a login or won't fetch | There's no report summary to fall back on for a URL job, so `/apply` says the fetch failed and asks you to paste the posting text into chat yourself. Paste it and the build continues normally, marked `provenance: user-pasted`; decline and `/apply` stops cleanly with nothing written |
 
 ## Updating
 
@@ -166,4 +182,6 @@ Ask Claude: *"Pull the latest job-scan-console."* Your `profile.md`, `facts.md`,
 
 Your resume, profile, fact registry, reports, and application packages live only on your machine. `profile.md`, `facts.md`, `resume.md`, `reports/`, and `applications/` are all gitignored, so none of them can be committed or pushed anywhere — by you or anyone else.
 
-Two things do leave your machine, both by design. The job search itself goes through your own Claude account's Indeed connector. And if you use `/apply` (above), the company-research step fetches roughly five public web pages per application — the company's own site, recent news, that kind of thing — plus the job posting itself. `/apply` always prints what it's about to fetch and waits for you to reply `go` before any of it happens, so you see the plan before anything goes out. What leaves is Claude looking up public pages, not your résumé or `facts.md` being sent anywhere — none of your personal data is ever uploaded.
+Two things do leave your machine, both by design. The job search itself goes through your own Claude account's Indeed connector. And if you use `/apply` (above), the company-research step fetches roughly five public web pages per application — the company's own site, recent news, that kind of thing — plus the job posting itself.
+
+For a job that came from a scan report, all of that waits for you: `/apply` prints the full plan and fetches nothing until you reply `go`. If you instead paste a link straight into `/apply` (see "Applying to a job you found yourself," above), one fetch happens *before* the plan is printed — the posting you pasted, read once so the manifest can actually tell you which company and role it's about to build for. Nothing else jumps the queue: no company research, no files, no folder — those still wait for `go`, exactly as above. What leaves is Claude reading a page you chose to paste, not your résumé or `facts.md` being sent anywhere — none of your personal data is ever uploaded.

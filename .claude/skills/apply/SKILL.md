@@ -1,6 +1,6 @@
 ---
 name: apply
-description: Build the full apply package (job post, company research, tailored résumé, honesty-checked claims ledger, gap analysis, tracker notes) for one or more jobs the user picked from a scan report. Gated by a manifest the user must approve before anything is written. Use when the user says "/apply", names a company or job to apply to, asks to build an application package, or wants to re-lint an existing package's claims.
+description: Build the full apply package (job post, company research, tailored résumé, honesty-checked claims ledger, gap analysis, tracker notes) for one or more jobs the user picked from a scan report, or for a job-post URL they paste. Gated by a manifest the user must approve before anything is written. Use when the user says "/apply", names a company or job to apply to, pastes a link to a job posting they found online, asks to build an application package, or wants to re-lint an existing package's claims.
 ---
 
 # /apply
@@ -16,6 +16,37 @@ the `job-scan-console` folder (the folder containing this skill's `.claude/`), e
 Read every file in `reports/`, not just the newest — the console lets the user browse older reports,
 and they may be acting on something from last week.
 
+- **`/apply <url>`** — if the argument begins `http://` or `https://`, it is a URL, not a search
+  string. Do not substring-match it against `reports/` entries, and don't fall through to the
+  ambiguity rules below — none of them apply to a job that never came from a report. Fetch it (this is
+  the one pre-gate fetch the manifest gate in step 3 makes room for) and extract **company** and **role
+  title** from the job description. If either can't be determined confidently, **ask** rather than
+  guess — the same reasoning that sends two ambiguous text matches to the user instead of a coin flip
+  applies here too, and a guessed company name silently produces a wrong folder slug with no report
+  entry downstream to catch it.
+
+  If the fetch itself fails — blocked, behind a login wall, times out — there's no report summary to
+  degrade to the way a scan-sourced job can (step 4.1's chain), because there's no report entry at all
+  to fall back on. Say the fetch failed and why, then ask the student to paste the posting text into
+  chat. If they paste it, build normally from what they gave you and record `provenance: user-pasted
+  (<url>)` in `job-post.md` — the JD is still real, only its delivery route changed. If they decline,
+  **abort cleanly**: nothing written, no folder. This isn't a rare edge case — LinkedIn and Workday,
+  between them a large share of where students actually find jobs, sit behind login walls or render via
+  JS, so a blocked fetch is the common case, not the exception. Never build a package from a page that
+  yielded nothing; a near-empty `job-post.md` produces a hollow gap analysis while inviting the
+  tailoring step to fill the space with invention instead of fact.
+
+  **Exactly one URL per invocation.** Don't mix a URL with company names, and don't accept more than
+  one URL in the same call. This isn't arbitrary: the batching rule below splits `/apply Acme, Globex`
+  on commas, and a URL can legally contain a comma inside its own query string — so comma-splitting a
+  pasted URL is a silent-corruption bug, not a loud one, and the student ends up with a package built
+  from a mangled link and no error telling them why. One URL at a time removes the ambiguity entirely.
+  Revisit this only by adding a real tokenizer that recognizes URLs before it ever splits on commas —
+  never by loosening the split itself.
+
+  A resolved URL job carries **company**, **role title** (both extracted), `fit: unscored`, and
+  `source: <url>` — in place of the fit score and source-report filename a scan-resolved job carries.
+  Keep these; they populate the manifest in step 3 the same way.
 - **`/apply <text>`** — match `<text>` against company names (and role title, if given) across all
   report entries, case-insensitive substring match. A bare string that isn't cleanly one or the other
   (`/apply Capital One Shopping` could be a company or a product-line role name) is matched jointly
@@ -44,7 +75,9 @@ and they may be acting on something from last week.
 
 Once resolved, each job carries: company, role title (as printed in its report entry — this is the
 title `/scan-jobs` pulled from the real listing, treat it as "posted"), fit score, and source report
-filename. Keep these; they populate the manifest in step 3.
+filename. Keep these; they populate the manifest in step 3. (A URL-resolved job carries the four-field
+contract given above instead — `fit: unscored` and `source: <url>` in place of the fit score and
+report filename.)
 
 ## 2. Migration check — `facts.md`
 
@@ -142,6 +175,43 @@ asking a second time. Short of an approval actually present in that invoking mes
 changes: an agent must never read approval into an ambiguous message, prior context, or its own sense
 that the user is probably fine with it — only a reply the user actually gave counts.
 
+**URL mode changes what may precede the gate, not the gate itself.** The rule above — nothing
+downstream, no folder, no file, no fetch, runs before the reply arrives — has exactly one carve-out,
+and it exists only because a manifest for a pasted URL cannot name the job without it:
+
+> No folder and no file is created before approval. Ever. That part does not change.
+> In URL mode only, ONE fetch — of the pasted URL itself — may precede the gate, because the
+> manifest cannot name the job otherwise. No company research, no second fetch, nothing written.
+
+This preserves the rule's purpose rather than eroding it. The gate exists to stop expensive work and
+unwanted files from happening before the user has said yes, and this one fetch does neither: it writes
+nothing to disk, and it was already exempt from the company-research budget (see step 4.1 — "This
+fetch does not count against the company-research budget"). What it buys in return is real: the
+manifest can show the *company and role the fetch actually extracted*, so a bad extraction or a
+mis-pasted link gets caught while nothing has been built yet, instead of discovered after the fact.
+
+State the risk plainly, because it's real and not hypothetical: this is the first exception to the
+strongest sentence in this skill, and exceptions attract more exceptions. Any future proposal to widen
+this one — a second fetch, a bit of company research squeezed in before approval, anything — is a
+redesign of the gate, not a tweak, and should be treated with that much scrutiny.
+
+For a URL-resolved job, the manifest entry carries the amended shape:
+
+```
+1. Acme Corp — Senior Product Manager        Fit: unscored (user-supplied URL)
+   source: https://boards.greenhouse.io/acme/jobs/12345
+   → applications/Acme-Corp-Senior-Product-Manager/
+   Files: job-post.md, company-context.md, tailored-resume.md, lint-report.md,
+          gap-analysis.md, notes.md
+   Research budget: ~5 fetches (company-context.md) + 1 tracer subagent
+
+Total: 1 job, ~5 research fetches, 1 tracer subagent.
+```
+
+The job-post fetch isn't listed as pending research here — per the carve-out above, it already
+happened before this manifest was printed, and listing it as pending would misrepresent what's left to
+do. The `Total:` line still always appears, exactly as it does for a scan-sourced build.
+
 ## 4. Build, per approved job
 
 Do the following **in this exact order** for each job that wasn't skipped:
@@ -191,6 +261,13 @@ checking which of the six files already exist and continuing from the first one 
 rather than restarting from `job-post.md`.
 
 ### 4.1 `job-post.md`
+
+**For a URL-resolved job, none of the chain below runs.** There's no `**Apply:**` shortlink and no
+`jk=` to resolve, because this job never came from a report entry — it came from the fetch already
+done in step 1. Write the JD fetched there directly into `job-post.md`, with a provenance line of
+`provenance: user-supplied URL (<url>)`, or `provenance: user-pasted (<url>)` if that fetch failed and
+the student pasted the text instead. The rest of this section — the shortlink chain immediately below,
+and everything from `company-context.md` onward — is unchanged and applies only to scan-sourced jobs.
 
 Source, in this order, and stop at the first that works:
 1. Resolve the job ID. The report entry doesn't carry an explicit job-ID field, and in practice the
@@ -459,6 +536,19 @@ Package built via /apply.
 file is edited directly by the user going forward ("recruiter called Tuesday"), never regenerated
 wholesale and never treated as structured data beyond that header block.
 
+For a URL-resolved job, two keys change: `source_report:` is replaced with `source: <url>`, and
+`fit:` carries the literal `unscored` rather than a score. Both keys stay present either way, just
+under different names — so the header block keeps the same shape regardless of which mode built it:
+
+```markdown
+company: <Company>
+role: <Role>
+source: <url>
+fit: unscored
+folder_created: <YYYY-MM-DD>
+status: built
+```
+
 ## 5. Re-lint (standalone)
 
 A user who edits `tailored-resume.md` after reading the ledger needs to re-verify it without
@@ -506,6 +596,11 @@ After a build (or a batch), report per job:
 - Lint: ERROR count / WARN count.
 - The tracer's most notable finding, if any (e.g. a claim that reads as overstated even if traced).
 - The biggest gap from `gap-analysis.md`'s section 2.
+
+For a URL-resolved job, add one more line: this job came from a URL, so it will not show up in the
+console — the console reads `applications/` zero times, only `reports/`. The package lives in
+`applications/<slug>/`. Say this plainly and every time; a student who isn't told will assume the
+build failed rather than succeeded somewhere the console simply doesn't look.
 
 Then say, plainly, once per session rather than per job: **passing the lint and the tracer is not the
 same as a claim being true** — both check traceability to `facts.md`, not whether the underlying

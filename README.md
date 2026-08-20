@@ -42,7 +42,7 @@ Claude will then, with you in the loop:
 | You want | Do |
 |---|---|
 | A fresh scan | Ask Claude: `/scan-jobs` |
-| Build an application package for a job | Ask Claude: `/apply <company or role>` — nothing is written until you approve the manifest it prints |
+| Build an application package for a job | Ask Claude: `/apply <company or role>` — or `/apply <url>` for a job you found yourself (one link at a time; it comes in `unscored` and won't appear in the console). Nothing is written until you approve the manifest it prints |
 | Change criteria | Ask Claude: *"raise my salary floor to $95K"* (edits `profile.md`; console updates on refresh) |
 | Automatic daily scans | Ask Claude: *"schedule a daily morning job scan"* |
 | See results | http://localhost:8642/console/ → Refresh after a scan lands |
