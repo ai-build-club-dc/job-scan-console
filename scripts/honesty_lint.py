@@ -65,7 +65,25 @@ class FactRow:
         self.line_no = line_no
 
     def text(self):
-        """Combined text the number/date/credential matchers search over."""
+        """Combined text the CREDENTIAL matcher (check 4) searches over.
+
+        Numeric (check 2/7) and date (check 3) matching do NOT use this -- they
+        scan `value` alone. `source_text` is a verbatim quote of the résumé line
+        a row came from, kept so a human can verify the row against their own
+        résumé at onboarding time; it is provenance for people, not match
+        surface for the matcher. A quoted sentence routinely contains numbers
+        the row isn't about (e.g. a row valued "4 sites" whose source_text also
+        mentions "3 education programs" and "1,200 students"), so scanning it
+        for numeric/date matches turns every quoted sentence into an accidental
+        wildcard -- a claim about a completely different figure would trace
+        cleanly just because it shares a source sentence with an unrelated row.
+        That's a false CLEAN, the worst failure mode this tool has.
+
+        Credentials keep the wider surface deliberately: a résumé can render a
+        credential differently from how the registry names it (e.g. spacing,
+        "Master of Science" vs "M.S."), and credentials are strings rather than
+        digits, so the accidental-match risk here is far lower than it is for
+        bare numbers riding along inside a quoted sentence."""
         return self.value + " " + self.source_text
 
 
@@ -230,8 +248,7 @@ def parse_number(token):
 
 
 def numbers_in_text(text):
-    """All numeric values found in a blob of text (used to scan a facts.md row's
-    value + source_text for a matching figure)."""
+    """All numeric values found in a blob of text."""
     out = []
     for m in NUM_TOKEN_RE.finditer(text):
         v = parse_number(m.group(0))
@@ -251,7 +268,9 @@ def numbers_match(a, b):
 
 
 def row_has_number(row, value):
-    return any(numbers_match(value, other) for other in numbers_in_text(row.text()))
+    """Scans `row.value` only, deliberately not `row.text()` -- see the comment on
+    FactRow.text() for why widening this to source_text produces false CLEANs."""
+    return any(numbers_match(value, other) for other in numbers_in_text(row.value))
 
 
 # Bare 4-digit tokens that look like calendar years (1900-2099) are excluded from
@@ -336,8 +355,16 @@ def date_row_matches(row, start_month, start_year, end_open, end_month, end_year
     """Returns (matched, reason). `reason` is only populated on a specific,
     explainable rejection (currently: the open-ended-vs-closed contradiction) so the
     caller can tell the student what's actually wrong instead of a generic 'no match'
-    -- see the open-ended branch below for why that distinction matters."""
-    years, year_months, row_open = registry_date_signature(row.text())
+    -- see the open-ended branch below for why that distinction matters.
+
+    Reads `row.value` only, not `row.text()`: source_text is a verbatim résumé
+    quote kept for human verification, not match surface -- a quoted sentence can
+    carry a year that has nothing to do with the date range this row records (a
+    job-description paragraph mentioning a founding year, a nearby year in the
+    same bullet, etc.), and matching against it would let a claim trace to a row
+    that never actually attested that date. See FactRow.text() for the full
+    reasoning; the same logic applies here as it does to check 2's numbers."""
+    years, year_months, row_open = registry_date_signature(row.value)
     if start_year not in years:
         return False, None
     if start_month and year_months.get(start_year) and start_month not in year_months[start_year]:

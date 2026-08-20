@@ -290,6 +290,18 @@ turned up five more gaps. None of the mechanisms above catch these:
    a range well above the student's floor. Nothing feeds that back into the report, so a package can
    sit on a rationale its own contents contradict.
 
+**Residual risks introduced by URL mode** (design in §12; not part of the two dry runs above):
+
+1. **Extraction quality is unverified.** Company and role come from a model reading a page it fetched
+   once. The manifest surfaces both before the build — that's the mitigation — but it only works if
+   the student actually reads the manifest rather than replying `go` reflexively.
+2. **`unscored` removes a real signal, not a cosmetic one.** The fit score is normally what stops a
+   student building a full package for a job they have no realistic shot at. URL mode removes it by
+   choice (§12.1); the gap analysis still catches the mismatch, but only after the tokens are already
+   spent.
+3. **A pasted JD is unverifiable.** If a student pastes the wrong posting, or half of one, nothing in
+   this design detects it. `provenance: user-pasted` records the route the JD took, not its accuracy.
+
 ## 7. Migration
 
 Existing students have `profile.md` and **no `facts.md`**. `/apply` must detect this and offer to
@@ -418,3 +430,75 @@ silently invented. JD fetches don't count against the research budget (§5.8).
 `status`) over a freeform dated log. `status` ∈ `built` / `applied` / `interviewing` / `rejected` /
 `offer`. Hand-editable markdown, never JSON — a student will type "recruiter called Tuesday" into
 this file and that must not break anything.
+
+## 12. URL mode (`/apply <url>`)
+
+Everything above assumes `/apply` acts on a job that came out of `/scan-jobs`. `/apply` also accepts a
+URL directly — a job the student found on LinkedIn, a company careers page, Greenhouse, or from a
+friend, with no `reports/` entry behind it at all. Detected by prefix: an argument starting `http://`
+or `https://` is a URL, not a search string. **One URL per invocation** — no mixing a URL with company
+names, no multiple URLs in one call. Report-name batching splits on commas (`/apply Acme, Globex`),
+and a URL can legally contain a comma in its query string, so comma-splitting a URL is a
+silent-corruption bug waiting to happen: the student would get a package built from a mangled link and
+no error telling them so. One URL at a time removes the ambiguity entirely.
+
+URL mode changes how a job gets *named*. It changes nothing about how a package gets *checked* — §4.2
+through §4.5, the tracer, both lint passes, and the gap analysis all behave identically once the job is
+resolved.
+
+**Four decisions, and why each was made this way:**
+
+**12.1 No fit score — the job is marked `unscored`.** A scan result carries `**Fit:** N/10`, computed
+against the rubric in `profile.md`. A pasted URL has never been run through that rubric, and this mode
+does not run it through one now. Scoring the fetched JD at apply time was considered and rejected: it's
+one extra model call, and it would make every downstream field consistent with the scan-sourced case —
+but it would also change what the manifest *promises*. A rubric score computed from a JD the student
+found on their own, rather than one the scan surfaced and already filtered above the 6/10 floor,
+invites more trust than it has earned. The manifest still shows the *cost* of building the package; it
+just can't show the *value*, and manufacturing a score to paper over that gap would be worse than
+leaving it visibly absent.
+
+**12.2 `applications/` only — `reports/` is never written for a URL job.** Beyond tidiness, there's a
+concrete technical reason: the console's report parser (`console/index.html:617`) is
+`/^\*\*Fit:\*\*\s*([\d.]+)\s*\/\s*10/` — it requires digits. An `unscored` entry appended to a report
+would parse as blank and sort unpredictably, exactly the class of parse-contract drift this project
+keeps getting bitten by (see §5.1's note on paraphrased `source_text`, or §5.6's on script-owned
+enumeration). One writer per file — `/scan-jobs` writes `reports/`, nothing else does — is what keeps
+that contract legible at all.
+
+Consequence, stated plainly: a URL-sourced job never appears in the console, because the console reads
+`reports/` and nothing else. The skill's wrap-up says so explicitly, once, at the end of a URL-mode
+build — a student who isn't told will reasonably conclude the build silently failed, rather than that
+it succeeded somewhere the console doesn't look.
+
+**12.3 A failed fetch asks for a paste, rather than degrading.** §11's `job-post.md` sourcing chain
+ends by degrading to the report entry's own summary when every fetch path fails. URL mode has no such
+floor to degrade to — there is no report entry behind a pasted URL. A blocked page (LinkedIn and
+Workday, between them a large share of where students actually find postings, both commonly block
+fetching) would otherwise yield a near-empty `job-post.md`, and a hollow JD produces a hollow gap
+analysis while inviting the tailoring step to fill the space with something that sounds plausible but
+traces to nothing. So on fetch failure, URL mode says the fetch failed and why, then asks the student
+to paste the posting text directly into chat, building normally from what they paste and recording
+`provenance: user-pasted (<url>)`. The JD is still real; only its delivery route changed, so nothing in
+the honesty chain (§5) weakens. If the student declines to paste, the build aborts cleanly — nothing
+written, no folder — rather than shipping a package built on a page that yielded nothing.
+
+**12.4 One fetch may precede the manifest gate — the gate's first exception.** §3.2 says nothing runs
+before the manifest reply: no folder, no file, no fetch. A manifest for a URL job can't state what it's
+about to build without knowing the company and role, and it can't know either without fetching the URL
+— so URL mode carves out a single, narrow exception: **one** fetch, of the pasted URL itself, may
+happen before the gate. No company research, no second fetch, and nothing written still precede it.
+This preserves the gate's purpose rather than eroding it: the gate exists to stop *expensive* work and
+*unwanted files*, and one JD fetch creates neither — it's already exempt from the company-research
+budget (§5.8), the same way the scan-mode `job-post.md` fetch is (§11). What it buys in return is real:
+the manifest can show the *extracted* company and role before anything is built, so a wrong extraction
+or a mis-pasted link gets caught at the gate instead of after it.
+
+**The risk, recorded honestly:** this is the first exception to the strongest sentence in this design
+(§3.2's "nothing downstream — no folder, no file, no fetch — runs before it arrives"), and exceptions
+attract more exceptions. Any future proposal to widen this carve-out should be treated as a redesign of
+the gate, not a tweak to it.
+
+**12.5 Parse-contract note.** `notes.md`'s header block (§11) carries `source_report` for a scan-sourced
+job; a URL job's `notes.md` carries `source` in its place, with `fit: unscored`. Both keys stay present
+across the two modes so the header block keeps one stable shape rather than two divergent ones.
