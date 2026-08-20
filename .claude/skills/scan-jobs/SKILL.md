@@ -47,7 +47,7 @@ If the user pasted job postings or links alongside the `/scan-jobs` invocation, 
 
 ## 7. Rank and cap
 
-Sort remaining candidates by fit score, descending. Keep only those scoring ≥6/10. Cap the list at **10 results**.
+Sort remaining candidates by fit score, descending. Keep only those scoring ≥6/10. Cap the list at **10 results**. If the cap trims jobs that passed the ≥6/10 floor, say so in the report's intro line — e.g. "14 matched, showing the top 10" — so good matches never vanish silently.
 
 ## 8. Write the report
 
