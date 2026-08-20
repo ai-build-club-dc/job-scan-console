@@ -26,13 +26,14 @@ Per-user, created during onboarding (see `CLAUDE.md`) from the user's resume plu
 - Apply hard filters: salary floor, freshness window, dealbreakers, excluded titles.
 - For filter survivors only, call `get_job_details` to confirm details and retrieve a real apply link (avoids spending calls on obvious rejects).
 - `get_company_data` (culture/salary ratings) is **not** called in v1 — flagged as a future extension.
-- Report shows results scoring ≥6/10, capped at **10 results max**, each with a one-line fit rationale including the rubric breakdown.
+- Report shows results scoring ≥6/10, capped at **10 results max**, each with a Why block, a Score block (the rubric breakdown), and a Posting block — see Output below.
 
 ## Output
 
 - One new timestamped file per run: `reports/{YYYY-MM-DD-HHmm}.md`.
-- Fields per job: title, company, location, salary (or "not listed"), fit score, rationale, apply link.
+- Fields per job: title, company, location, salary (or "not listed"), fit score, a Why block, a Score block, a Posting block, apply link.
 - The `**Fit:** N/10` line format is a parse contract with the console — never change it.
+- **v0.9 (report format extension):** the per-job entry expanded from a single-line "Why" rationale into three bullet blocks — `**Why:**`, `**Score:**`, `**Posting:**` — each a label line followed by `- ` bullets, per `.claude/skills/scan-jobs/SKILL.md` step 8. This exists because the console's row-detail panel needs structured content (why recommended, score breakdown, posting highlights) to render on click, and since the console is a static file it can only show what was written into the report at scan time — there's no server-side computation to derive it later. The old parenthetical component breakdown appended to the Why line is superseded by the `**Score:**` block and is no longer written.
 - **Stateless for v1:** no cross-run dedup tracking. Repeats across scans are expected and acceptable for now.
 
 ## Trigger

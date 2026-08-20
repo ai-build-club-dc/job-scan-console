@@ -25,7 +25,7 @@ Combine all result sets. Dedupe by job ID — a title/location pair can return o
 
 For every deduped result, using only the search-summary fields (title, company, location, salary if shown, snippet):
 
-- Score fit 1–10 using the **Scoring rubric** in profile.md: title match (0–4) + substance (0–4) + logistics (0–2). Keep the `**Fit:** N/10` report-line format unchanged (the console UI parses it) and append the component breakdown to the entry's "Why" line, e.g. "(title 4 · substance 3 · logistics 2)". If the rubric section is missing from profile.md, fall back to holistic 1–10 judgment.
+- Score fit 1–10 using the **Scoring rubric** in profile.md: title match (0–4) + substance (0–4) + logistics (0–2). Keep the `**Fit:** N/10` report-line format unchanged (the console UI parses it). The component scores get written to the entry's `**Score:**` block in step 8, not appended to the "Why" line. If the rubric section is missing from profile.md, fall back to holistic 1–10 judgment (the `**Score:**` block still gets written, just without `X/N` points — see step 8).
 - Apply hard filters: reject if salary is shown and below the profile's salary floor; reject if older than the profile's freshness window at scan time; reject if it matches a dealbreaker or an excluded title.
 - If salary isn't shown in the summary, don't reject on that basis alone — leave it to the detail-check in step 5.
 
@@ -58,9 +58,20 @@ Save to `reports/{YYYY-MM-DD-HHmm}.md` (create the `reports/` folder if it doesn
 **Location:** …
 **Salary:** … (or "not listed")
 **Fit:** 8/10
-**Why:** one-line rationale (title 3 · substance 3 · logistics 2)
+**Why:**
+- 2–3 short bullets: why this job is recommended for this user
+- …
+**Score:**
+- Title 3/4: one-line reason
+- Substance 4/4: one-line reason
+- Logistics 2/2: one-line reason
+**Posting:**
+- 3–5 bullets: the job post's main points
+- …
 **Apply:** https://…
 ```
+
+`**Fit:** N/10` stays exactly this shape — never change it. For each block field (`**Why:**`, `**Score:**`, `**Posting:**`): the label sits alone on its line, followed by `- ` bullet lines; the block ends at the next `**Field:**` line, the next `##` header, or a `---` rule. `**Score:**` always has exactly three bullets, named Title/Substance/Logistics, each starting with that component's real points from step 4 (`Title X/4`, `Substance X/4`, `Logistics X/2`) followed by a colon and a one-line reason — except when profile.md has no rubric section (holistic-fallback case), where the three bullets keep their names but drop the `X/N` points (just `- Title: reason`, etc.). `**Posting:**` bullets are drawn only from material already in hand — the search-summary snippet plus the full description from step 5's `get_job_details` call (or the fetched page, for pasted postings) — never a new fetch; cover core responsibilities, hard requirements (years, skills, clearances), and logistics worth knowing (hybrid days, locations).
 
 Note "posted date unknown" inline for any pasted job that couldn't be freshness-checked.
 
